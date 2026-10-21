@@ -30,7 +30,8 @@ Ansicht: linke Maustaste ziehen = drehen, rechte Maustaste oder Umschalttaste = 
 - Der Kanal wird immer in Windrichtung aufgebaut: Bei einer neuen Windrichtung dreht sich das Rechengitter um das feste Modell. Länge etwa 1,2 Modellgrößen vor und 3 Modellgrößen hinter dem Modell, seitlich und oben je 1 Modellgröße.
 - Ränder: vorn strömt der Wind ein, seitlich und oben ungestörter Wind, hinten verlässt die Luft den Kanal (mit dämpfender Randzone). Modelle auf dem Boden: bei Fahrzeugen ist der Boden glatt, ohne Reibung (ähnlich wie im Fahrzeug-Windkanal mit Laufband), bei Gebäuden ist der Boden fest und der Wind hat ein Höhenprofil (Potenzgesetz mit Exponent 1/7).
 - Einheiten: Geschwindigkeit in m/s, Druck als Unterschied zum Druck der ungestörten Anströmung in Pa (Luft 20 °C, 1,204 kg/m³). Oben rechts steht die Reynoldszahl des echten Objekts und, falls kleiner, die, mit der das Gitter tatsächlich rechnet.
-- Die Rechnung überwacht sich selbst: Wird sie instabil, startet sie automatisch mit mehr Dämpfung neu.
+- Die Rechnung überwacht sich selbst: Wird sie instabil, startet sie automatisch mit mehr Dämpfung neu (höchstens dreimal, danach hält sie an und sagt es).
+- Selbsttest beim Start: Die Grafikkarte rechnet ein kleines Gitter mit Quader, und das Ergebnis wird mit derselben Rechnung auf dem Prozessor verglichen. Dazu läuft im Leistungstest eine gleichförmige Strömung auf einem größeren Gitter, die gleichförmig bleiben muss. Fällt eine Prüfung durch, erscheint oben ein roter Hinweis; Einzelheiten stehen in der Hilfe („?“) unter „Diese Grafikkarte“.
 
 ## Grenzen
 

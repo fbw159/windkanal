@@ -170,6 +170,11 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
 }
 #toast.show { opacity: 1; }
 #busy { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 12px 18px; border-radius: 12px; background: rgba(14, 20, 27, .88); border: 1px solid #2c3a48; }
+#warn {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: min(520px, calc(100% - 28px)); z-index: 2;
+  padding: 10px 14px; border-radius: 10px; background: #3a1d1d; border: 1px solid #b0503f; color: #ffe3dc; font-size: 13.5px; line-height: 1.45;
+}
+#warn[hidden] { display: none; }
 #drop { position: absolute; inset: 14px; border: 2px dashed var(--wind); border-radius: 16px; display: grid; place-items: center; font-size: 18px; background: rgba(11, 16, 22, .7); }
 #drop[hidden], #busy[hidden] { display: none; }
 #startHint {
@@ -315,6 +320,7 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
   <div id="toast" role="status"></div>
   <div id="busy" hidden><span></span></div>
   <div id="drop" hidden>Datei loslassen, um das Modell zu laden</div>
+  <div id="warn" hidden>Auf diesem Gerät rechnet die Grafikkarte nicht richtig (Selbsttest beim Start nicht bestanden). Die Bilder können deshalb falsch sein. Einzelheiten unter „?“.</div>
   <div id="startHint">Modell wählen, Wind einstellen, dann <b>Windkanal starten</b>.<br>Mit der Maus ziehen, um die Ansicht zu drehen.</div>
 </main>
 
@@ -333,6 +339,8 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
     <p>Stromlinien zeigen, welchen Weg die Luft in diesem Augenblick nimmt. Die Farbe gibt die Geschwindigkeit oder den Druck gegenüber der Umgebung an.</p>
     <h3>Grenzen</h3>
     <p>Die Bilder geben die Strömung in ihren Grundzügen richtig wieder. Für genaue Zahlen ist das Gitter zu grob: Teile, die kleiner als eine Zelle sind, verschwinden, und die sehr hohen Reynoldszahlen echter Autos oder Häuser lassen sich so nicht auflösen. Oben rechts steht deshalb neben der Reynoldszahl des echten Objekts auch die, mit der das Gitter tatsächlich rechnet. Feinere Stufen zeigen mehr Wirbel. Bei hohen Geschwindigkeiten ändert sich das Bild kaum, die Werte in der Legende wachsen aber mit.</p>
+    <h3>Diese Grafikkarte</h3>
+    <p id="gpuInfo">–</p>
     <button id="helpClose" class="primary" type="button">Schließen</button>
   </div>
 </div>
@@ -1039,7 +1047,7 @@ function wgslStep() {
 @group(0) @binding(1) var<storage, read> fs: array<f32>;
 @group(0) @binding(2) var<storage, read_write> fd: array<f32>;
 @group(0) @binding(3) var<storage, read> info: array<u32>;
-@group(0) @binding(4) var<storage, read_write> mac: array<vec2<u32>>;
+@group(0) @binding(4) var<storage, read_write> mac: array<vec4<f32>>;
 @compute @workgroup_size(64, 1, 1)
 fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let NX = i32(prm.dims.x);
@@ -1054,7 +1062,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let ii = x + NX * y + NXY * z;
   let idx = u32(ii);
   let inf = info[idx];
-  if ((inf & ${SOLID_BIT}u) != 0u) { mac[idx] = vec2<u32>(0u, 0u); return; }
+  if ((inf & ${SOLID_BIT}u) != 0u) { mac[idx] = vec4<f32>(0.0); return; }
   let ui = prm.uin.xyz * prof(z, prm.wall.w);
   let uii = dot(ui, ui);
   let floorT = prm.flags.x;
@@ -1073,14 +1081,15 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
       // Boden: 1 = Haftbedingung (fest), 2 = glatt (Spiegelung), 0 = kein Boden (Fernfeld)
       const j = C.findIndex(d => d[0] === c[0] && d[1] === c[1] && d[2] === -1);
       const okL = [c[0] === 1 ? 'x > 0' : c[0] === -1 ? 'x < NX - 1' : '', c[1] === 1 ? 'y > 0' : c[1] === -1 ? 'y < NY - 1' : ''].filter(Boolean);
-      const get = `f${i} = fs[${j}u * N + ${srcIdx(c[0], c[1], 0)}];`;
-      const slip = okL.length ? `if (${okL.join(' && ')}) { ${get} } else { f${i} = ${far}; }` : get;
+      // Liegt die Nachbarzelle am Boden im Modell, wird wie an der Wand zurückgeworfen
+      const get = `{ let s = ${srcIdx(c[0], c[1], 0)}; if ((info[s] & ${SOLID_BIT}u) != 0u) { f${i} = ${bb}; } else { f${i} = fs[${j}u * N + s]; } }`;
+      const slip = okL.length ? `if (${okL.join(' && ')}) ${get} else { f${i} = ${far}; }` : get;
       s += `  else if (z == 0) { if (floorT == 1u) { f${i} = ${bb}; } else if (floorT == 2u) { ${slip} } else { f${i} = ${far}; } }\n`;
     }
     if (c[0] === -1) {
       const okLat = [c[1] === 1 ? 'y > 0' : c[1] === -1 ? 'y < NY - 1' : '', c[2] === 1 ? 'z > 0' : c[2] === -1 ? 'z < NZ - 1' : ''].filter(Boolean);
-      const get = `f${i} = fs[${i}u * N + ${srcIdx(0, c[1], c[2])}];`;
-      s += `  else if (x == NX - 1) { ${okLat.length ? `if (${okLat.join(' && ')}) { ${get} } else { f${i} = ${far}; }` : get} }\n`;
+      const get = `{ let s = ${srcIdx(0, c[1], c[2])}; if ((info[s] & ${SOLID_BIT}u) != 0u) { f${i} = ${bb}; } else { f${i} = fs[${i}u * N + s]; } }`;
+      s += `  else if (x == NX - 1) { ${okLat.length ? `if (${okLat.join(' && ')}) ${get} else { f${i} = ${far}; }` : get} }\n`;
     }
     const side = [];
     if (c[1] === 1) side.push('y == 0');
@@ -1166,7 +1175,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
       s += `  fd[${i}u * N + idx] = eqf(${wf(W[i])}, rs, ${cuExpr(c, 'u')}, uu) + om1 * ${wf(W[i] * 4.5)} * (${cpcExpr(c)} - tr3);\n`;
     }
   }
-  s += `  mac[idx] = vec2<u32>(pack2x16float(u.xy), pack2x16float(vec2<f32>(u.z, rs - 1.0)));
+  s += `  mac[idx] = vec4<f32>(u, rs - 1.0);
 }
 `;
   return s;
@@ -1179,7 +1188,8 @@ function wgslInit() {
 @group(0) @binding(0) var<uniform> prm: Prm;
 @group(0) @binding(1) var<storage, read_write> fa: array<f32>;
 @group(0) @binding(2) var<storage, read> info: array<u32>;
-@group(0) @binding(3) var<storage, read_write> mac: array<vec2<u32>>;
+@group(0) @binding(3) var<storage, read_write> mac: array<vec4<f32>>;
+@group(0) @binding(4) var<storage, read_write> fb: array<f32>;
 @compute @workgroup_size(64, 1, 1)
 fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   if (g.x >= prm.dims.x) { return; }
@@ -1194,8 +1204,9 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   }
   let uu = dot(u, u);
 `;
-  for (let i = 0; i < 19; i++) s += `  fa[${i}u * N + idx] = eqf(${wf(W[i])}, 1.0, ${cuExpr(C[i], 'u')}, uu);\n`;
-  s += `  mac[idx] = vec2<u32>(pack2x16float(u.xy), pack2x16float(vec2<f32>(u.z, 0.0)));
+  // beide Puffer füllen, damit auch Zellen im Modell überall definierte Werte haben
+  for (let i = 0; i < 19; i++) s += `  { let e = eqf(${wf(W[i])}, 1.0, ${cuExpr(C[i], 'u')}, uu); fa[${i}u * N + idx] = e; fb[${i}u * N + idx] = e; }\n`;
+  s += `  mac[idx] = vec4<f32>(u, 0.0);
 }
 `;
   return s;
@@ -1209,12 +1220,12 @@ function wgslCopy() {
   let s = `
 struct CP { alpha: f32, mode: u32, refx: u32, p1: u32, dims: vec4<u32> };
 @group(0) @binding(0) var<uniform> cp: CP;
-@group(0) @binding(1) var<storage, read> mac: array<vec2<u32>>;
+@group(0) @binding(1) var<storage, read> mac: array<vec4<f32>>;
 @group(0) @binding(2) var<storage, read> info: array<u32>;
 @group(0) @binding(3) var<storage, read_write> avg: array<vec4<f32>>;
 @group(0) @binding(4) var tex: texture_storage_3d<rgba16float, write>;
 @group(0) @binding(5) var<storage, read_write> stat: array<atomic<u32>, 4>;
-fn rd(i: u32) -> vec4<f32> { let m = mac[i]; let a = unpack2x16float(m.x); let b = unpack2x16float(m.y); return vec4<f32>(a.x, a.y, b.x, b.y); }
+fn rd(i: u32) -> vec4<f32> { return mac[i]; }
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let D = cp.dims;
@@ -1520,6 +1531,113 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) @interpolate(flat)
 }
 `;
 
+// ---------- 5b. Rechnung auf dem Prozessor (zum Prüfen der Grafikkarte) ----------
+// Dieselben Regeln wie wgslInit/wgslStep, aber in JavaScript und doppelter Genauigkeit.
+// Wird beim Start auf einem kleinen Gitter mit der Grafikkarte verglichen.
+
+function refEq(w, rho, cu, uu) { return w * rho * (1 + 3 * cu + 4.5 * cu * cu - 1.5 * uu); }
+function refProf(z, delta) { return delta > 0 ? Math.min(1, Math.pow(Math.max((z + 0.5) / delta, 1e-4), 1 / 7)) : 1; }
+
+// P: { nx, ny, nz, uin: [ux,uy,uz], delta, floor, tau0, csmag, noise, sponge, spgX, spgY }
+function refInit(fa, fb, mac, info, P) {
+  const { C, W } = D3Q19, { nx, ny, nz } = P, N = nx * ny * nz;
+  for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    const idx = x + nx * (y + ny * z), pr = refProf(z, P.delta);
+    let u = [P.uin[0] * pr, P.uin[1] * pr, P.uin[2] * pr];
+    if (info[idx] & SOLID_BIT) u = [0, 0, 0];
+    else {
+      const l = Math.hypot(u[0], u[1], u[2]);
+      const pert = [0, Math.sin(x * 0.19 + z * 0.31) * Math.cos(y * 0.23), Math.sin(y * 0.17 + x * 0.29) * Math.cos(z * 0.21)];
+      u = [u[0] + P.noise * l * pert[0], u[1] + P.noise * l * pert[1], u[2] + P.noise * l * pert[2]];
+    }
+    const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    for (let i = 0; i < 19; i++) {
+      const e = refEq(W[i], 1, C[i][0] * u[0] + C[i][1] * u[1] + C[i][2] * u[2], uu);
+      fa[i * N + idx] = e; fb[i * N + idx] = e;
+    }
+    mac[idx * 4] = u[0]; mac[idx * 4 + 1] = u[1]; mac[idx * 4 + 2] = u[2]; mac[idx * 4 + 3] = 0;
+  }
+}
+
+function refStep(fs, fd, mac, info, P) {
+  const { C, W, OPP } = D3Q19, { nx: NX, ny: NY, nz: NZ } = P, NXY = NX * NY, N = NXY * NZ;
+  const MIR = C.map(c => C.findIndex(d => d[0] === c[0] && d[1] === c[1] && d[2] === -c[2]));
+  const C2 = 18 * Math.SQRT2 * P.csmag * P.csmag, ground = P.floor !== 0;
+  const f = new Float64Array(19);
+  for (let z = 0; z < NZ; z++) for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const idx = x + NX * y + NXY * z, inf = info[idx];
+    if (inf & SOLID_BIT) { mac[idx * 4] = mac[idx * 4 + 1] = mac[idx * 4 + 2] = mac[idx * 4 + 3] = 0; continue; }
+    const pr = refProf(z, P.delta), ui = [P.uin[0] * pr, P.uin[1] * pr, P.uin[2] * pr];
+    const uii = ui[0] * ui[0] + ui[1] * ui[1] + ui[2] * ui[2];
+    f[0] = fs[idx];
+    for (let i = 1; i < 19; i++) {
+      const c = C[i], bb = fs[OPP[i] * N + idx], far = refEq(W[i], 1, c[0] * ui[0] + c[1] * ui[1] + c[2] * ui[2], uii);
+      if (inf & (1 << i)) f[i] = bb;
+      else if (c[0] === 1 && x === 0) f[i] = far;
+      else if (c[2] === 1 && z === 0) {
+        if (P.floor === 1) f[i] = bb;
+        else if (P.floor === 2) {
+          const ok = (c[0] === 1 ? x > 0 : c[0] === -1 ? x < NX - 1 : true) && (c[1] === 1 ? y > 0 : c[1] === -1 ? y < NY - 1 : true);
+          if (ok) { const s = idx - (c[0] + c[1] * NX); f[i] = (info[s] & SOLID_BIT) ? bb : fs[MIR[i] * N + s]; } else f[i] = far;
+        } else f[i] = far;
+      }
+      else if (c[0] === -1 && x === NX - 1) {
+        const ok = (c[1] === 1 ? y > 0 : c[1] === -1 ? y < NY - 1 : true) && (c[2] === 1 ? z > 0 : c[2] === -1 ? z < NZ - 1 : true);
+        if (ok) { const s = idx - (c[1] * NX + c[2] * NXY); f[i] = (info[s] & SOLID_BIT) ? bb : fs[i * N + s]; } else f[i] = far;
+      }
+      else if ((c[1] === 1 && y === 0) || (c[1] === -1 && y === NY - 1) || (c[2] === -1 && z === NZ - 1)) f[i] = far;
+      else f[i] = fs[i * N + idx - (c[0] + c[1] * NX + c[2] * NXY)];
+    }
+    let rho = 0, jx = 0, jy = 0, jz = 0, pxx = 0, pyy = 0, pzz = 0, pxy = 0, pxz = 0, pyz = 0;
+    for (let i = 0; i < 19; i++) {
+      const c = C[i], v = f[i];
+      rho += v; jx += v * c[0]; jy += v * c[1]; jz += v * c[2];
+      pxx += v * c[0] * c[0]; pyy += v * c[1] * c[1]; pzz += v * c[2] * c[2];
+      pxy += v * c[0] * c[1]; pxz += v * c[0] * c[2]; pyz += v * c[1] * c[2];
+    }
+    const rr = Math.min(3, Math.max(0.3, rho));
+    let u = [jx / rr, jy / rr, jz / rr];
+    const um = Math.hypot(u[0], u[1], u[2]);
+    if (um > 0.35) u = u.map(v => v * 0.35 / um);
+    const dOut = NX - 1 - x;
+    let dSide = Math.min(Math.min(y, NY - 1 - y), NZ - 1 - z);
+    if (!ground) dSide = Math.min(dSide, z);
+    const sa = Math.max(0, 1 - dOut / P.spgX), sb = Math.max(0, 1 - dSide / P.spgY);
+    const spg = P.sponge * Math.max(sa * sa, sb * sb);
+    const rs = rr + (1 - rr) * spg;
+    const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    const nxx = pxx - rr * (u[0] * u[0] + 1 / 3), nyy = pyy - rr * (u[1] * u[1] + 1 / 3), nzz = pzz - rr * (u[2] * u[2] + 1 / 3);
+    const nxy = pxy - rr * u[0] * u[1], nxz = pxz - rr * u[0] * u[2], nyz = pyz - rr * u[1] * u[2];
+    const q = Math.sqrt(nxx * nxx + nyy * nyy + nzz * nzz + 2 * (nxy * nxy + nxz * nxz + nyz * nyz));
+    const t0 = P.tau0, tau = 0.5 * (t0 + Math.sqrt(t0 * t0 + C2 * q / rr));
+    const om1 = (1 - 1 / tau) * (1 - spg), tr3 = (nxx + nyy + nzz) / 3;
+    const [ux, uy, uz] = u;
+    const a = {
+      xxy: rs * ux * ux * uy + om1 * (2 * ux * nxy + uy * nxx), xxz: rs * ux * ux * uz + om1 * (2 * ux * nxz + uz * nxx),
+      xyy: rs * ux * uy * uy + om1 * (2 * uy * nxy + ux * nyy), xzz: rs * ux * uz * uz + om1 * (2 * uz * nxz + ux * nzz),
+      yyz: rs * uy * uy * uz + om1 * (2 * uy * nyz + uz * nyy), yzz: rs * uy * uz * uz + om1 * (2 * uz * nyz + uy * nzz),
+    };
+    for (let i = 0; i < 19; i++) {
+      const c = C[i], h = (p, b) => p * (b * b - 1 / 3);
+      const cpc = c[0] * c[0] * nxx + c[1] * c[1] * nyy + c[2] * c[2] * nzz + 2 * (c[0] * c[1] * nxy + c[0] * c[2] * nxz + c[1] * c[2] * nyz);
+      const t3 = h(c[1], c[0]) * a.xxy + h(c[2], c[0]) * a.xxz + h(c[0], c[1]) * a.xyy + h(c[0], c[2]) * a.xzz + h(c[2], c[1]) * a.yyz + h(c[1], c[2]) * a.yzz;
+      fd[i * N + idx] = refEq(W[i], rs, c[0] * ux + c[1] * uy + c[2] * uz, uu) + om1 * W[i] * 4.5 * (cpc - tr3) + W[i] * 13.5 * t3;
+    }
+    mac[idx * 4] = ux; mac[idx * 4 + 1] = uy; mac[idx * 4 + 2] = uz; mac[idx * 4 + 3] = rs - 1;
+  }
+}
+
+// Kleines Testgitter: Quader im Kanal, wahlweise auf dem Boden
+function refCase(floor) {
+  const nx = 24, ny = 12, nz = 10, N = nx * ny * nz, solid = new Uint8Array(N);
+  const z0 = floor ? 0 : 3;
+  for (let z = z0; z < z0 + 4; z++) for (let y = 4; y < 8; y++) for (let x = 8; x < 12; x++) solid[x + nx * (y + ny * z)] = 1;
+  return {
+    nx, ny, nz, N, solid, info: buildInfo(solid, nx, ny, nz),
+    P: { nx, ny, nz, uin: [U_LB, 0, 0], delta: floor === 1 ? 6 : 0, floor, tau0: 0.5 + 3 * NU_MIN, csmag: C_SMAG, noise: 0.02, sponge: SPONGE, spgX: spongeW(nx), spgY: spongeW(Math.min(ny, nz)) },
+  };
+}
+
 // ---------- 6. Grafikkarte: Simulation und Darstellung ----------
 const U_LB = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('ulb')) ? +new URLSearchParams(location.search).get('ulb') : 0.1; // Windgeschwindigkeit im Gitter (Zellen je Schritt)
 const NU_AIR = 1.5e-5;     // kinematische Viskosität Luft, m²/s
@@ -1527,7 +1645,7 @@ const RHO_AIR = 1.204;     // Dichte Luft bei 20 °C, kg/m³
 const NU_MIN = 2e-4;       // kleinste Gitterviskosität (Stabilität, Gitter-Reynoldszahl 500)
 const C_SMAG = 0.15;       // Smagorinsky-Konstante
 const SPONGE = 0.08;       // Stärke der Schwammzone am Rand
-const BYTES_PER_CELL = 19 * 4 * 2 + 4 + 8 + 16 + 8 + 1;
+const BYTES_PER_CELL = 19 * 4 * 2 + 4 + 16 + 16 + 8 + 1;
 const LEVELS = [
   { name: 'sehr grob', cells: 0.25e6 }, { name: 'grob', cells: 0.5e6 }, { name: 'mittel', cells: 1e6 },
   { name: 'fein', cells: 2e6 }, { name: 'sehr fein', cells: 4e6 }, { name: 'extrem fein', cells: 8e6 }, { name: 'maximal', cells: 16e6 },
@@ -1537,6 +1655,7 @@ const MAX_LINES = 1500;
 const BU = () => GPUBufferUsage, TU = () => GPUTextureUsage;
 
 let SIM_PIPES = null;   // übersetzte Rechen-Shader, für alle Gitter gleich
+let SIM_PASS_MODE = 'one';   // 'one': alle Schritte eines Bilds in einem Durchgang, 'each': je Schritt ein eigener (vom Selbsttest gewählt)
 
 class Sim {
   constructor(dev) { this.dev = dev; this.r = null; this.parity = 0; }
@@ -1556,9 +1675,9 @@ class Sim {
     dev.pushErrorScope('validation');
     const B = (size, usage) => dev.createBuffer({ size: Math.max(16, Math.ceil(size / 16) * 16), usage });
     const r = {};
-    r.fA = B(19 * N * 4, S); r.fB = B(19 * N * 4, S);
+    r.fA = B(19 * N * 4, S | BU().COPY_SRC); r.fB = B(19 * N * 4, S | BU().COPY_SRC);
     r.info = B(N * 4, S | CD);
-    r.mac = B(N * 8, S | BU().COPY_SRC);
+    r.mac = B(N * 16, S | BU().COPY_SRC);
     r.avg = B(N * 16, S);
     r.prm = B(96, BU().UNIFORM | CD);
     r.cp = B(32, BU().UNIFORM | CD);
@@ -1568,7 +1687,7 @@ class Sim {
     r.M = clamp(Math.round(2.2 * nx / 0.75), 256, 1536);
     r.seeds = B(MAX_LINES * 16, S | CD);
     r.lines = B(MAX_LINES * r.M * 32, S);
-    r.fieldTex = dev.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'rgba16float', usage: TU().STORAGE_BINDING | TU().TEXTURE_BINDING });
+    r.fieldTex = dev.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'rgba16float', usage: TU().STORAGE_BINDING | TU().TEXTURE_BINDING | TU().COPY_SRC });
     r.solidTex = dev.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'r8unorm', usage: TU().TEXTURE_BINDING | TU().COPY_DST });
     dev.queue.writeBuffer(r.info, 0, info);
     const s255 = new Uint8Array(N);
@@ -1589,7 +1708,7 @@ class Sim {
     [r.pStep, r.pInit, r.pCopy] = SIM_PIPES;
     const bg = (p, ent) => dev.createBindGroup({ layout: p.getBindGroupLayout(0), entries: ent.map((x, i) => ({ binding: i, resource: x.createView ? x.createView() : (x.buffer ? x : { buffer: x }) })) });
     r.bgStep = [bg(r.pStep, [r.prm, r.fA, r.fB, r.info, r.mac]), bg(r.pStep, [r.prm, r.fB, r.fA, r.info, r.mac])];
-    r.bgInit = bg(r.pInit, [r.prm, r.fA, r.info, r.mac]);
+    r.bgInit = bg(r.pInit, [r.prm, r.fA, r.info, r.mac, r.fB]);
     r.bgCopy = dev.createBindGroup({ layout: r.pCopy.getBindGroupLayout(0), entries: [
       { binding: 0, resource: { buffer: r.cp } }, { binding: 1, resource: { buffer: r.mac } }, { binding: 2, resource: { buffer: r.info } },
       { binding: 3, resource: { buffer: r.avg } }, { binding: 4, resource: r.fieldTex.createView() }, { binding: 5, resource: { buffer: r.stat } }] });
@@ -1622,9 +1741,17 @@ class Sim {
   }
 
   steps(enc, k) {
-    const r = this.r, p = enc.beginComputePass();
+    const r = this.r, gx = Math.ceil(r.nx / 64);
+    if ((this.passMode || SIM_PASS_MODE) === 'each') {
+      for (let i = 0; i < k; i++) {
+        const p = enc.beginComputePass();
+        p.setPipeline(r.pStep); p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz); p.end();
+        this.parity ^= 1;
+      }
+      return;
+    }
+    const p = enc.beginComputePass();
     p.setPipeline(r.pStep);
-    const gx = Math.ceil(r.nx / 64);
     for (let i = 0; i < k; i++) { p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz); this.parity ^= 1; }
     p.end();
   }
@@ -1674,18 +1801,44 @@ class Sim {
     } catch (e) { return null; } finally { r.statBusy = false; }
   }
 
+  resetStats() { if (this.r) this.dev.queue.writeBuffer(this.r.stat, 0, new Uint32Array(4)); }
+
+  async readBuffer(src, offset, size) {
+    const buf = this.dev.createBuffer({ size, usage: BU().COPY_DST | BU().MAP_READ });
+    const enc = this.dev.createCommandEncoder();
+    enc.copyBufferToBuffer(src, offset, buf, 0, size);
+    this.dev.queue.submit([enc.finish()]);
+    await buf.mapAsync(GPUMapMode.READ);
+    const out = buf.getMappedRange().slice(0);
+    buf.unmap(); buf.destroy();
+    return out;
+  }
+
   // Werte zurücklesen (für Prüfungen): Geschwindigkeit und Dichteabweichung je Zelle
   async readMacro(first = 0, count = null) {
-    const r = this.r, n = count || r.N;
-    const buf = this.dev.createBuffer({ size: n * 8, usage: BU().COPY_DST | BU().MAP_READ });
+    const n = count || this.r.N;
+    return new Float32Array(await this.readBuffer(this.r.mac, first * 16, n * 16));
+  }
+
+  // aktuelle Verteilungen (der Puffer, aus dem der nächste Schritt liest)
+  async readF() {
+    const r = this.r;
+    return new Float32Array(await this.readBuffer(this.parity ? r.fB : r.fA, 0, 19 * r.N * 4));
+  }
+
+  // 3D-Textur des Felds zurücklesen (rgba16float)
+  async readTex() {
+    const r = this.r, bpr = Math.ceil(r.nx * 8 / 256) * 256, size = bpr * r.ny * r.nz;
+    const buf = this.dev.createBuffer({ size, usage: BU().COPY_DST | BU().MAP_READ });
     const enc = this.dev.createCommandEncoder();
-    enc.copyBufferToBuffer(r.mac, first * 8, buf, 0, n * 8);
+    enc.copyTextureToBuffer({ texture: r.fieldTex }, { buffer: buf, bytesPerRow: bpr, rowsPerImage: r.ny }, [r.nx, r.ny, r.nz]);
     this.dev.queue.submit([enc.finish()]);
     await buf.mapAsync(GPUMapMode.READ);
     const h = new Uint16Array(buf.getMappedRange().slice(0));
     buf.unmap(); buf.destroy();
-    const out = new Float32Array(n * 4);
-    for (let i = 0; i < n * 4; i++) out[i] = half2float(h[i]);
+    const out = new Float32Array(r.N * 4), rowH = bpr / 2;
+    for (let z = 0; z < r.nz; z++) for (let y = 0; y < r.ny; y++) for (let x = 0; x < r.nx; x++)
+      for (let c = 0; c < 4; c++) out[(x + r.nx * (y + r.ny * z)) * 4 + c] = half2float(h[(z * r.ny + y) * rowH + x * 4 + c]);
     return out;
   }
 }
@@ -1965,7 +2118,7 @@ const App = {
   steps: 0, spf: 2, frameMs: 16, gpuMs: 8, gpuPending: false, gpuFresh: false, damp: 1, lastHealth: 0, avgReset: true,
   rate: { t: 0, steps: 0, value: 0 },
   view: { color: 'vel', lines: true, nLinesV: 50, seed: 'flaeche', row: 0.5, surface: true, slice: 'aus', slicePos: 0.5, avg: false, anim: !matchMedia('(prefers-reduced-motion: reduce)').matches },
-  mlups: 0, ctx: null, offscreen: null, lastHud: 0, pRef: 0, pRefN: 0,
+  mlups: 0, benchBad: null, ctx: null, offscreen: null, lastHud: 0, pRef: 0, pRefN: 0, runId: 0, restarts: 0,
 };
 
 const VEL_RANGE = 1.8;
@@ -2057,7 +2210,7 @@ async function doRebuild(token) {
     App.renderer.setSim(App.sim);
     App.sim.setParams(physParams());
     updateSeeds();
-    App.steps = 0; App.avgReset = true;
+    App.steps = 0; App.avgReset = true; App.restarts = 0;
     hideBusy();
     App.building = false;
     if (vox.count === 0) toast('Das Modell ist kleiner als eine Zelle. Bitte größer machen oder die Genauigkeit erhöhen.');
@@ -2124,7 +2277,7 @@ function startRun() {
 function pauseRun() { App.running = false; updateRunButton(); }
 function resetFlow() {
   if (!App.dom) return;
-  App.started = false; App.steps = 0; App.hasField = false; App.avgReset = true;
+  App.started = false; App.steps = 0; App.hasField = false; App.avgReset = true; App.restarts = 0;
   if (!App.running) startRun();
   updateHud(true);
 }
@@ -2462,7 +2615,8 @@ function placeWindLabel(sc) {
   if (q <= 0) { el.style.display = 'none'; return; }
   el.style.display = '';
   el.textContent = `Wind ${fmt(App.wind.speed)} m/s`;
-  el.style.transform = `translate(${(p[0] * 0.5 + 0.5) * w}px, ${(0.5 - p[1] * 0.5) * h}px) translate(-50%, -150%)`;
+  const lx = clamp((p[0] * 0.5 + 0.5) * w, 60, w - 60), ly = clamp((0.5 - p[1] * 0.5) * h, 30, h - 10);
+  el.style.transform = `translate(${lx}px, ${ly}px) translate(-50%, -150%)`;
 }
 
 // ---------- Hauptschleife ----------
@@ -2487,14 +2641,17 @@ function renderFrame(now, stepsOverride) {
   const sim = App.sim;
   if (sim.r && !App.building && App.dom) {
     if (App.running || stepsOverride) {
-      if (!App.started) { sim.init(enc); App.started = true; App.steps = 0; App.avgReset = true; App.pRef = 0; App.pRefN = 0; }
+      if (!App.started) {
+        sim.init(enc); sim.resetStats();
+        App.started = true; App.steps = 0; App.avgReset = true; App.pRef = 0; App.pRefN = 0; App.runId++;
+      }
       let k = stepsOverride || App.spf;
       if (!stepsOverride) {
-        // Schritte je Bild so wählen, dass die Grafikkarte etwa 14 ms je Bild rechnet und die Bildfolge flüssig bleibt
-        // Erhöht wird nur nach einer frischen Messung, sonst läuft die Warteschlange der Grafikkarte voll
+        // Schritte je Bild so wählen, dass die Grafikkarte je Bild etwa 12–22 ms arbeitet (Rechnen und Zeichnen);
+        // erhöht wird nur nach einer frischen Messung, sonst läuft die Warteschlange der Grafikkarte voll
         const g = App.gpuMs;
-        if (g > 20 || App.frameMs > 45) { App.spf = Math.max(1, Math.floor(App.spf * 0.7)); App.gpuFresh = false; }
-        else if (App.gpuFresh && g < 11 && App.frameMs < 25) { App.spf = Math.min(MAX_SPF, App.spf + Math.max(1, Math.round(App.spf * 0.12))); App.gpuFresh = false; }
+        if (g > 22) { App.spf = Math.max(1, Math.floor(App.spf * 0.7)); App.gpuFresh = false; }
+        else if (App.gpuFresh && g < 12) { App.spf = Math.min(MAX_SPF, App.spf + Math.max(1, Math.round(App.spf * 0.12))); App.gpuFresh = false; }
       }
       sim.steps(enc, k);
       App.steps += k;
@@ -2534,27 +2691,116 @@ async function checkHealth() {
   const sim = App.sim;
   if (!sim.r || App.checking) return;
   App.checking = true;
+  const run = App.runId;
   try {
     const st = await sim.readStats();
-    if (st && st.pRef !== null && Number.isFinite(st.pRef)) App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.5) : st.pRef;
-    const bad = st && !(st.umax < 3.3 * U_LB);
-    if (bad && App.running && App.started) {
-      App.damp = Math.min(App.damp * 4, 300);
-      sim.setParams(physParams());
-      toast('Die Rechnung ist instabil geworden und wurde mit etwas mehr Dämpfung neu gestartet.');
-      App.started = false; App.steps = 0; App.hasField = false;
+    // Werte aus einem früheren Lauf (vor einem Neustart) nicht verwenden
+    if (st && run === App.runId && App.started) {
+      if (st.pRef !== null && Number.isFinite(st.pRef)) App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.5) : st.pRef;
+      const bad = !(st.umax < 3.3 * U_LB);
+      if (bad && App.running) {
+        App.restarts++;
+        App.started = false; App.steps = 0; App.hasField = false;
+        if (App.restarts > 3) {
+          pauseRun();
+          toast('Die Rechnung wird hier immer wieder instabil, auch mit viel Dämpfung. Das liegt nicht an der Strömung, sondern an der Grafikkarte oder dem Browser dieses Geräts.');
+        } else {
+          App.damp = Math.min(App.damp * 4, 300);
+          sim.setParams(physParams());
+          toast('Die Rechnung ist instabil geworden und wurde mit etwas mehr Dämpfung neu gestartet.');
+        }
+      }
     }
   } catch (e) { /* ignorieren */ }
   App.checking = false;
 }
 
+// ---------- Selbsttest der Grafikkarte ----------
+// Kleines Gitter mit Quader, 16 Schritte: Ergebnis der Grafikkarte gegen die Rechnung auf dem Prozessor.
+// Zuerst alle Schritte in einem Durchgang ('one'); klappt das nicht, je Schritt ein eigener ('each').
+async function gpuSelfTest() {
+  const dev = App.dev, K = 16, out = { ok: false, mode: null, runs: [] };
+  for (const mode of ['one', 'each']) {
+    const run = { mode, cases: [] };
+    let allOk = true;
+    for (const floor of [2, 1, 0]) {
+      const T = refCase(floor), N = T.N, sim = new Sim(dev);
+      sim.passMode = mode;
+      const res = { floor };
+      try {
+        await sim.build({ nx: T.nx, ny: T.ny, nz: T.nz }, T.info, T.solid, App.renderer.tracePipe, App.renderer.sampler);
+        sim.setParams({ tau0: T.P.tau0, floor, delta: T.P.delta, cs: T.P.csmag, noise: T.P.noise, sponge: T.P.sponge });
+        const enc = dev.createCommandEncoder();
+        sim.init(enc); sim.steps(enc, K); sim.copy(enc, 0, 1);
+        dev.queue.submit([enc.finish()]);
+        const gf = await sim.readF(), gm = await sim.readMacro(), gt = await sim.readTex();
+        const fa = new Float64Array(19 * N), fb = new Float64Array(19 * N), cm = new Float64Array(4 * N);
+        refInit(fa, fb, cm, T.info, T.P);
+        let a = fa, b = fb;
+        for (let k = 0; k < K; k++) { refStep(a, b, cm, T.info, T.P); const t = a; a = b; b = t; }
+        let df = 0, dm = 0, dt = 0, nan = 0;
+        for (let i = 0; i < 19 * N; i++) {
+          if (!Number.isFinite(gf[i])) { nan++; continue; }
+          df = Math.max(df, Math.abs(gf[i] - a[i]));
+        }
+        for (let c = 0; c < N; c++) {
+          if (T.solid[c]) continue;
+          for (let k = 0; k < 4; k++) {
+            const g = gm[c * 4 + k], t = gt[c * 4 + k];
+            if (!Number.isFinite(g) || !Number.isFinite(t)) { nan++; continue; }
+            dm = Math.max(dm, Math.abs(g - cm[c * 4 + k]));
+            dt = Math.max(dt, Math.abs(t - g));
+          }
+        }
+        Object.assign(res, { df, dm, dt, nan, ok: nan === 0 && df < 1e-4 && dm < 1e-4 && dt < 5e-4 });
+      } catch (e) {
+        Object.assign(res, { ok: false, err: String(e && e.message || e) });
+      }
+      sim.destroy();
+      run.cases.push(res);
+      if (!res.ok) allOk = false;
+    }
+    out.runs.push(run);
+    if (allOk) { out.ok = true; out.mode = mode; SIM_PASS_MODE = mode; break; }
+  }
+  return out;
+}
+
+function updateGpuInfo() {
+  const i = App.adapterInfo || {}, t = App.selfTest;
+  const name = [i.vendor, i.architecture, i.description].filter(Boolean).join(', ') || 'unbekannt';
+  let txt = `Grafikkarte: ${name}. ` + (App.mlups > 0 ? `Rechenleistung etwa ${fmtBig(App.mlups * 1e6)} Zellen je Sekunde. ` : '');
+  if (!t) txt += 'Selbsttest nicht ausgeführt.';
+  else if (t.ok) {
+    const worst = Math.max(...t.runs[t.runs.length - 1].cases.map(c => c.df));
+    txt += `Selbsttest bestanden (größte Abweichung zur Rechnung auf dem Prozessor ${worst.toExponential(1).replace('.', ',')}` + (t.mode === 'each' ? ', jeder Schritt einzeln abgeschickt).' : ').');
+  } else {
+    txt += 'Selbsttest nicht bestanden: ' + t.runs.map(r => r.mode + ' ' + r.cases.map(c => c.err ? `Boden ${c.floor}: ${c.err}` :
+      `Boden ${c.floor}: f ${c.df.toExponential(1)}, u ${c.dm.toExponential(1)}, Textur ${c.dt.toExponential(1)}, ungültig ${c.nan}`).join('; ')).join(' | ');
+  }
+  if (App.benchBad > 0) txt += ` Großes Gitter mit gleichförmiger Strömung: ${fmt(App.benchBad)} Zellen mit falschen Werten.`;
+  else if (App.benchBad === 0) txt += ' Großes Gitter mit gleichförmiger Strömung: in Ordnung' + (SIM_PASS_MODE === 'each' ? ' (jeder Schritt einzeln abgeschickt).' : '.');
+  $('#gpuInfo').textContent = txt;
+}
+
 // ---------- Leistungstest der Grafikkarte ----------
 async function benchmark() {
+  // Leistung messen und dabei prüfen, ob ein großes Gitter mit gleichförmiger Strömung gleichförmig bleibt.
+  // Bleibt es das nicht und laufen alle Schritte in einem Durchgang, einmal mit je einem Durchgang pro Schritt wiederholen.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await benchmarkRun();
+    App.mlups = r.mlups; App.benchBad = r.bad;
+    if (r.bad === 0 || SIM_PASS_MODE === 'each' || attempt === 1) break;
+    SIM_PASS_MODE = 'each';
+  }
+}
+
+async function benchmarkRun() {
   const dev = App.dev, nx = 96, ny = 48, nz = 48, N = nx * ny * nz;
   const sim = new Sim(dev);
-  const dom = { nx, ny, nz };
+  let mlups = 0, bad = -1;
   try {
-    await sim.build(dom, new Uint32Array(N), new Uint8Array(N), App.renderer.tracePipe, App.renderer.sampler);
+    await sim.build({ nx, ny, nz }, new Uint32Array(N), new Uint8Array(N), App.renderer.tracePipe, App.renderer.sampler);
     sim.setParams({ tau0: 0.52, floor: 0, delta: 0 });
     let enc = dev.createCommandEncoder(); sim.init(enc); sim.steps(enc, 4); dev.queue.submit([enc.finish()]);
     await dev.queue.onSubmittedWorkDone();
@@ -2569,9 +2815,16 @@ async function benchmark() {
       }
       ms = performance.now() - t0;
     }
-    App.mlups = N * steps / ms / 1000;
-  } catch (e) { App.mlups = 0; }
+    mlups = N * steps / ms / 1000;
+    const v = await sim.readMacro();
+    bad = 0;
+    for (let i = 0; i < N; i++) {
+      const ux = v[i * 4], uy = v[i * 4 + 1], uz = v[i * 4 + 2], dr = v[i * 4 + 3];
+      if (!(Math.abs(ux - U_LB) < 0.01 && Math.abs(uy) < 0.01 && Math.abs(uz) < 0.01 && Math.abs(dr) < 0.01)) bad++;
+    }
+  } catch (e) { mlups = 0; }
   sim.destroy();
+  return { mlups, bad };
 }
 
 // ---------- Bedienelemente verdrahten ----------
@@ -2740,7 +2993,13 @@ async function main() {
   // Grenzen der Grafikkarte: welche Stufen passen?
   const maxCells = Math.floor(Math.min(L.maxStorageBufferBindingSize, L.maxBufferSize) / (19 * 4));
   App.levelOk = LEVELS.map(l => l.cells * 1.08 <= maxCells && l.cells <= 16e6);
+  App.adapterInfo = adapter.info || {};
+  showBusy('Grafikkarte wird geprüft …');
+  if (!QS.has('ohnetest')) App.selfTest = await gpuSelfTest();
   if (!TEST || QS.has('bench')) await benchmark();
+  hideBusy();
+  if ((App.selfTest && !App.selfTest.ok) || App.benchBad > 0) $('#warn').hidden = false;
+  updateGpuInfo();
   const okIdx = App.levelOk.map((ok, i) => ok ? i : -1).filter(i => i >= 0);
   // Empfehlung: zwei Durchläufe der Luft durch den Kanal (etwa 20·nx Schritte, nx ≈ 2·∛Zellen) in höchstens 25 s
   let rec = 0;
