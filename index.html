@@ -1962,7 +1962,7 @@ const App = {
   wind: { yaw: 0, pitch: 0, speed: 30 },
   level: 3, rec: 3, levelOk: LEVELS.map(() => true), customCells: null,
   running: false, started: false, hasField: false, fieldDirty: false, building: false, buildToken: 0,
-  steps: 0, spf: 2, frameMs: 16, damp: 1, lastHealth: 0, avgReset: true,
+  steps: 0, spf: 2, frameMs: 16, gpuMs: 8, gpuPending: false, gpuFresh: false, damp: 1, lastHealth: 0, avgReset: true,
   rate: { t: 0, steps: 0, value: 0 },
   view: { color: 'vel', lines: true, nLinesV: 50, seed: 'flaeche', row: 0.5, surface: true, slice: 'aus', slicePos: 0.5, avg: false, anim: !matchMedia('(prefers-reduced-motion: reduce)').matches },
   mlups: 0, ctx: null, offscreen: null, lastHud: 0, pRef: 0, pRefN: 0,
@@ -1970,6 +1970,7 @@ const App = {
 
 const VEL_RANGE = 1.8;
 const FLOW_TIME = 25;     // Sekunden, in denen die Strömung bei der empfohlenen Stufe eingelaufen sein soll
+const MAX_SPF = 200;      // höchstens so viele Rechenschritte je Bild
 const nLinesOf = (v) => Math.round(10 * Math.pow(150, v / 100));
 
 // ---------- Rechengebiet ----------
@@ -2469,7 +2470,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dt = now - (App.lastNow || now);
   App.lastNow = now;
-  if (dt > 0 && dt < 1000) App.frameMs = lerp(App.frameMs, dt, 0.12);
+  if (dt > 0) App.frameMs = lerp(App.frameMs, Math.min(dt, 500), 0.2);
   App.cam.update(now);
   if (!TEST || App.autoFrames) renderFrame(now);
   updateHud(false);
@@ -2489,8 +2490,11 @@ function renderFrame(now, stepsOverride) {
       if (!App.started) { sim.init(enc); App.started = true; App.steps = 0; App.avgReset = true; App.pRef = 0; App.pRefN = 0; }
       let k = stepsOverride || App.spf;
       if (!stepsOverride) {
-        if (App.frameMs > 21) App.spf = Math.max(1, Math.floor(App.spf * 0.85));
-        else if (App.frameMs < 17.8) App.spf = Math.min(60, App.spf + Math.max(1, Math.round(App.spf * 0.08)));
+        // Schritte je Bild so wählen, dass die Grafikkarte etwa 14 ms je Bild rechnet und die Bildfolge flüssig bleibt
+        // Erhöht wird nur nach einer frischen Messung, sonst läuft die Warteschlange der Grafikkarte voll
+        const g = App.gpuMs;
+        if (g > 20 || App.frameMs > 45) { App.spf = Math.max(1, Math.floor(App.spf * 0.7)); App.gpuFresh = false; }
+        else if (App.gpuFresh && g < 11 && App.frameMs < 25) { App.spf = Math.min(MAX_SPF, App.spf + Math.max(1, Math.round(App.spf * 0.12))); App.gpuFresh = false; }
       }
       sim.steps(enc, k);
       App.steps += k;
@@ -2516,6 +2520,12 @@ function renderFrame(now, stepsOverride) {
   const target = TEST ? App.offView(W, H) : App.ctx.getCurrentTexture().createView();
   r.draw(enc, target, sc);
   dev.queue.submit([enc.finish()]);
+  // Zeit bis zur Fertigstellung der Arbeit dieses Bilds auf der Grafikkarte messen
+  if (!App.gpuPending && !stepsOverride) {
+    App.gpuPending = true;
+    const t0 = performance.now();
+    dev.queue.onSubmittedWorkDone().then(() => { App.gpuMs = lerp(App.gpuMs, performance.now() - t0, 0.3); App.gpuPending = false; App.gpuFresh = true; }, () => { App.gpuPending = false; });
+  }
   placeWindLabel(sc);
   return sc;
 }
@@ -2548,13 +2558,17 @@ async function benchmark() {
     sim.setParams({ tau0: 0.52, floor: 0, delta: 0 });
     let enc = dev.createCommandEncoder(); sim.init(enc); sim.steps(enc, 4); dev.queue.submit([enc.finish()]);
     await dev.queue.onSubmittedWorkDone();
-    let steps = 0, t0 = performance.now(), batch = 4;
-    while (performance.now() - t0 < 140 && steps < 4000) {
-      enc = dev.createCommandEncoder(); sim.steps(enc, batch); dev.queue.submit([enc.finish()]);
-      await dev.queue.onSubmittedWorkDone();
-      steps += batch; batch = Math.min(64, batch * 2);
+    // erst aufwärmen (die Grafikkarte taktet hoch), dann messen
+    let steps = 0, t0 = performance.now(), batch = 4, ms = 0;
+    for (let phase = 0; phase < 2; phase++) {
+      steps = 0; t0 = performance.now();
+      while (performance.now() - t0 < (phase ? 160 : 120) && steps < 6000) {
+        enc = dev.createCommandEncoder(); sim.steps(enc, batch); dev.queue.submit([enc.finish()]);
+        await dev.queue.onSubmittedWorkDone();
+        steps += batch; batch = Math.min(64, batch * 2);
+      }
+      ms = performance.now() - t0;
     }
-    const ms = performance.now() - t0;
     App.mlups = N * steps / ms / 1000;
   } catch (e) { App.mlups = 0; }
   sim.destroy();

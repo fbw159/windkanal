@@ -4,7 +4,7 @@ Ein virtueller Windkanal im Browser: Modell wählen, Wind einstellen, starten �
 
 ## Starten
 
-`index.html` doppelt anklicken. Nötig ist ein Browser mit WebGPU, am besten aktuelles **Chrome oder Edge**. Unter Windows mit zwei Grafikkarten (z. B. Quadro und Intel) in den Windows-Grafikeinstellungen für den Browser „Hohe Leistung“ einstellen.
+Online: **https://fbw159.github.io/windkanal/** – oder `index.html` doppelt anklicken. Nötig ist ein Browser mit WebGPU, am besten aktuelles **Chrome oder Edge**. Unter Windows mit zwei Grafikkarten (z. B. Quadro und Intel) in den Windows-Grafikeinstellungen für den Browser „Hohe Leistung“ einstellen.
 
 ## Ablauf
 
