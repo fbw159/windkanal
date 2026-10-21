@@ -100,6 +100,10 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
 .seg button { border: 0; background: transparent; padding: 3px 9px; border-radius: 6px; cursor: pointer; color: #aab6c2; font-size: 13px; }
 .seg button[aria-pressed="true"] { background: #2a3744; color: var(--text); }
 .seg button:hover { color: var(--text); }
+.seg.modes { display: flex; width: 100%; }
+.seg.modes button { flex: 1; padding: 6px 9px; font-size: 14px; }
+p.modetxt { margin: 8px 0 12px; }
+.sublabel { color: var(--muted); font-size: 12.5px; margin: 0 0 6px; }
 
 .tgl { display: flex; align-items: center; gap: 9px; min-height: 30px; margin-top: 2px; cursor: pointer; color: #d3dbe3; }
 .tgl input { appearance: none; -webkit-appearance: none; width: 32px; height: 18px; border-radius: 9px; background: #2c3a48; position: relative; cursor: pointer; flex: none; margin: 0; transition: background .15s; }
@@ -148,6 +152,11 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
 .hudrow { display: flex; justify-content: space-between; gap: 16px; line-height: 1.6; }
 .hudrow span { color: var(--muted); }
 .hudrow b { font-weight: 600; }
+.hudrow sub { font-size: 75%; }
+#hudForces { border-top: 1px solid rgba(255, 255, 255, .09); margin-top: 6px; padding-top: 5px; }
+#hudForces[hidden] { display: none; }
+#hudPlot { display: block; width: 100%; height: 44px; margin: 5px 0 3px; }
+.hudnote { color: var(--muted); font-size: 11.5px; line-height: 1.4; max-width: 250px; }
 #views { position: absolute; left: 14px; bottom: 14px; display: flex; background: rgba(14, 20, 27, .78); border: 1px solid rgba(255, 255, 255, .07); border-radius: 9px; padding: 3px; }
 #views button { border: 0; background: transparent; padding: 5px 11px; border-radius: 6px; cursor: pointer; color: #c4ced8; font-size: 13px; }
 #views button:hover { background: #24303c; color: var(--text); }
@@ -265,7 +274,10 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
   </section>
 
   <section class="step" id="stepRes">
-    <h2><span class="n">3</span>Genauigkeit</h2>
+    <h2><span class="n">3</span>Rechnung</h2>
+    <div class="seg modes" id="modeSeg" aria-label="Art der Rechnung"><button type="button" data-v="les">Instationär</button><button type="button" data-v="sst">Stationär</button></div>
+    <p class="hint modetxt" id="modeTxt"></p>
+    <div class="sublabel">Genauigkeit</div>
     <div class="levels" id="levels" role="radiogroup" aria-label="Genauigkeit"></div>
     <div class="levelscale"><span>schneller</span><span>feiner</span></div>
     <p class="info" id="levelTxt"></p>
@@ -297,16 +309,23 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
     <label class="tgl"><input id="avgChk" type="checkbox"><span>Zeitlich mitteln (ruhigeres Bild)</span></label>
     <label class="tgl"><input id="animChk" type="checkbox"><span>Strömung animieren</span></label>
   </section>
-  <p class="foot">Lattice-Boltzmann-Verfahren (D3Q19) mit Turbulenzmodell, gerechnet mit WebGPU. Für Bilder und Tendenzen gedacht, nicht für genaue Zahlen.</p>
+  <p class="foot">Lattice-Boltzmann-Verfahren (D3Q19) mit Wandgesetz und Turbulenzmodell (WALE oder k-ω SST), gerechnet mit WebGPU.</p>
 </aside>
 
 <main id="stage">
   <canvas id="view" aria-label="3D-Ansicht des Windkanals"></canvas>
   <canvas id="mirror" hidden></canvas>
-  <div id="hud" aria-live="polite">
+  <div id="hud">
     <div class="hudrow"><span>Strömung</span><b id="hudState">bereit</b></div>
     <div class="hudrow"><span>Rechenschritte</span><b id="hudSpeed">–</b></div>
     <div class="hudrow"><span>Reynoldszahl</span><b id="hudRe">–</b></div>
+    <div id="hudForces" hidden>
+      <div class="hudrow"><span>Widerstand c<sub>W</sub></span><b id="hudCw">–</b></div>
+      <div class="hudrow"><span>Auftrieb c<sub>A</sub></span><b id="hudCa">–</b></div>
+      <div class="hudrow" id="hudCsRow"><span>Seitenkraft c<sub>S</sub></span><b id="hudCs">–</b></div>
+      <canvas id="hudPlot" aria-hidden="true"></canvas>
+      <div class="hudnote" id="hudNote"></div>
+    </div>
   </div>
   <div id="views" role="group" aria-label="Ansicht">
     <button type="button" data-v="3d">3D</button><button type="button" data-v="seite">Seite</button><button type="button" data-v="oben">Oben</button><button type="button" data-v="vorn">Vorn</button>
@@ -330,15 +349,22 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
     <ol>
       <li><b>Modell wählen:</b> ein Beispiel oder eine eigene STL- oder OBJ-Datei. Größe und Hochachse lassen sich danach einstellen.</li>
       <li><b>Wind einstellen:</b> Richtung am Ring, bei frei schwebenden Modellen auch die Neigung, dazu die Geschwindigkeit.</li>
-      <li><b>Genauigkeit wählen</b> und den <b>Windkanal starten</b>. Nach ein bis zwei Durchläufen der Luft durch den Kanal ist die Strömung eingelaufen.</li>
+      <li><b>Rechnung wählen</b> (instationär oder stationär), die <b>Genauigkeit</b> einstellen und den <b>Windkanal starten</b>. Nach zwei Durchläufen der Luft durch den Kanal ist die Strömung eingelaufen, für genaue Kennzahlen braucht es mehr.</li>
     </ol>
     <h3>Ansicht</h3>
     <p>Linke Maustaste ziehen: drehen. Rechte Maustaste oder Umschalttaste ziehen: verschieben. Mausrad: näher und weiter. Doppelklick: Ansicht zurücksetzen. Leertaste: Start und Pause, R: neu starten.</p>
+    <h3>Instationär oder stationär</h3>
+    <p><b>Instationär</b> rechnet zeitgenau: Wirbel lösen sich ab und ziehen mit dem Wind davon. Die feinen Wirbel, die kleiner als eine Zelle sind, ersetzt ein Turbulenzmodell (WALE, Grobstruktursimulation). c<sub>W</sub> und c<sub>A</sub> werden nach dem Einlaufen über die Zeit gemittelt.</p>
+    <p><b>Stationär</b> rechnet die zeitlich gemittelte Strömung mit dem k-ω-SST-Turbulenzmodell (RANS), so wie viele Ingenieurprogramme. Die Rechnung läuft, bis sich c<sub>W</sub> und c<sub>A</sub> nicht mehr ändern. Das dauert länger, das Bild ist dafür ruhig.</p>
     <h3>Was gerechnet wird</h3>
-    <p>Das Modell wird in Würfelzellen zerlegt. Für jede Zelle rechnet die Grafikkarte mit dem Lattice-Boltzmann-Verfahren, wie sich die Luft bewegt, ergänzt um ein einfaches Turbulenzmodell (Smagorinsky). Vorn strömt der Wind ein, seitlich und oben weht er ungestört weiter, hinten verlässt er den Kanal. Bei Fahrzeugen ist der Boden glatt, ohne Reibung, ähnlich wie im Fahrzeug-Windkanal mit Laufband. Bei Gebäuden ist der Boden fest und der Wind nimmt mit der Höhe zu.</p>
-    <p>Stromlinien zeigen, welchen Weg die Luft in diesem Augenblick nimmt. Die Farbe gibt die Geschwindigkeit oder den Druck gegenüber der Umgebung an.</p>
-    <h3>Grenzen</h3>
-    <p>Die Bilder geben die Strömung in ihren Grundzügen richtig wieder. Für genaue Zahlen ist das Gitter zu grob: Teile, die kleiner als eine Zelle sind, verschwinden, und die sehr hohen Reynoldszahlen echter Autos oder Häuser lassen sich so nicht auflösen. Oben rechts steht deshalb neben der Reynoldszahl des echten Objekts auch die, mit der das Gitter tatsächlich rechnet. Feinere Stufen zeigen mehr Wirbel. Bei hohen Geschwindigkeiten ändert sich das Bild kaum, die Werte in der Legende wachsen aber mit.</p>
+    <p>Das Modell wird in Würfelzellen zerlegt. Für jede Zelle rechnet die Grafikkarte mit dem Lattice-Boltzmann-Verfahren, wie sich die Luft bewegt, mit der echten Zähigkeit der Luft. Die Wand liegt dabei an ihrer echten Stelle, auch zwischen den Zellmitten; Teile, die dünner als eine Zelle sind (etwa die Hinterkante eines Flügels), zählen trotzdem als Wand. Die Grenzschicht direkt an der Wand ist viel dünner als eine Zelle: Dort setzt ein Wandgesetz die Reibung an, und eine zusätzliche Zähigkeit in den Zellen an der Wand bringt den Schwung der Strömung bis an die Wand, so wie es die Turbulenz in der echten Grenzschicht tut.</p>
+    <p>Ob die Grenzschicht am Modell laminar oder turbulent ist, hängt von der Reynoldszahl ab (oben rechts): unter etwa 200 000 bleibt sie laminar und löst an Rundungen früh ab, über etwa 500 000 ist sie turbulent und liegt länger an, dazwischen gleitend. Deshalb fällt etwa der Widerstand der Kugel zwischen 3 und 5 m/s deutlich ab. Wo genau der Umschlag auf dem Modell liegt, rechnet die Seite nicht aus.</p>
+    <p>Vorn strömt der Wind ein, seitlich, oben und hinten kann die Luft frei ein- und ausströmen. Bei Fahrzeugen ist der Boden glatt, ohne Reibung, ähnlich wie im Fahrzeug-Windkanal mit Laufband. Bei Gebäuden ist der Boden rau und der Wind nimmt mit der Höhe zu; die angegebene Geschwindigkeit gilt in Höhe des Gebäudes.</p>
+    <p>c<sub>W</sub> und c<sub>A</sub> kommen aus den Kräften, die die Luft an jeder Wandzelle auf das Modell überträgt, bezogen auf den Staudruck und die Stirnfläche (beim Tragflügel auf die Flügelfläche). Stromlinien zeigen, welchen Weg die Luft nimmt. Die Farbe gibt die Geschwindigkeit oder den Druck gegenüber der Umgebung an.</p>
+    <h3>Wie genau?</h3>
+    <p>Geprüft an Körpern mit bekannten Messwerten (Stufe mit 8 Mio. Zellen; in Klammern die Messung): Kugel bei hoher Geschwindigkeit c<sub>W</sub> 0,21 (0,18 bis 0,20), bei 1 m/s 0,40 (0,47); Würfel 1,20 (1,05); vereinfachtes Auto (Ahmed-Körper) c<sub>W</sub> 0,48 (0,29 bis 0,30) und c<sub>A</sub> 0,36 (0,35); Tragflügel NACA 2412 bei 8° c<sub>A</sub> 0,49 (etwa 0,70).</p>
+    <p>Wo die Strömung abreißt und wie die Wirbel dahinter ziehen, gibt die Rechnung gut wieder. Bei stumpfen Körpern wie Kugel und Würfel liegt c<sub>W</sub> innerhalb von etwa 20 % der Messung. Bei gerundeten Vorderkanten fällt c<sub>W</sub> zu hoch aus, weil die Rundung nur wenige Zellen umfasst. Dünne Flügelprofile sind die größte Schwäche: Ihre Vorderkante ist kleiner als eine Zelle, der Auftrieb fällt ein Drittel bis die Hälfte zu klein aus und der Widerstand deutlich zu groß; feinere Stufen helfen dabei nicht. Auch sonst ändern sich die Werte von Stufe zu Stufe um einige Prozent, der Auftrieb mitunter mehr. Der Kanal ist endlich groß, das Modell versperrt einige Prozent des Querschnitts. Für Vergleiche und Tendenzen taugen die Zahlen, für Nachkommastellen nicht.</p>
+    <p>Bei kantigen Körpern wie Auto, Lkw und Haus ändert sich die Strömung mit der Geschwindigkeit nur wenig (das ist auch in Wirklichkeit so), Kräfte und Druck wachsen aber mit dem Quadrat der Geschwindigkeit.</p>
     <h3>Diese Grafikkarte</h3>
     <p id="gpuInfo">–</p>
     <button id="helpClose" class="primary" type="button">Schließen</button>
@@ -353,7 +379,8 @@ input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
 'use strict';
 /* =====================================================================
    Windkanal – Strömung um 3D-Modelle im Browser (WebGPU)
-   Lattice-Boltzmann D3Q19 mit Smagorinsky-LES, alles auf der Grafikkarte.
+   Lattice-Boltzmann D3Q19, instationär (WALE-Grobstruktursimulation) oder stationär (k-ω SST),
+   mit Wandgesetz an der echten Wandlage, alles auf der Grafikkarte.
    Aufbau dieser Datei:
      1. Hilfsfunktionen (Vektoren, Matrizen, Zahlenformat)
      2. Beispielmodelle (werden hier erzeugt, keine Dateien nötig)
@@ -681,10 +708,44 @@ function buildChimney() {
 
 // Liste der Beispielmodelle
 // ground: 'slip' = Boden ohne Reibung (Fahrzeug, wie Laufband), 'fixed' = fester Boden mit Windprofil (Gebäude), null = schwebt frei
+// Ahmed-Körper (Ahmed, Ramm, Faltin 1984): 1044 × 389 × 288 mm, Heckschräge 222 mm unter 25°,
+// Vorderkanten mit 100 mm gerundet, 50 mm über dem Boden auf vier Stelzen (Ø 30 mm). Bezugskörper für Prüfungen.
+function buildAhmed() {
+  const L = 1.044, W = 0.389, H = 0.288, R = 0.1, ls = 0.222, ang = 25 * DEG, g = 0.05;
+  const lx = ls * Math.cos(ang), lz = ls * Math.sin(ang), x0 = L / 2;
+  const rect = (x, yh, zlo, zhi) => [[x, -yh, zlo], [x, yh, zlo], [x, yh, zhi], [x, -yh, zhi]];
+  const rings = [{ p: [[x0, 0, g + H / 2]], c: COL.alu }];
+  const nR = 14;
+  for (let k = 0; k <= nR; k++) {
+    const th = Math.PI / 2 * k / nR, r = R * Math.sin(th), sx = R * (1 - Math.cos(th));
+    rings.push({ p: rect(x0 - sx, W / 2 - R + r, g + R - r, g + H - R + r), c: COL.alu });
+  }
+  rings.push({ p: rect(x0 - (L - lx), W / 2, g, g + H), c: COL.alu });
+  rings.push({ p: rect(x0 - L, W / 2, g, g + H - lz), c: COL.alu });
+  rings.push({ p: [[x0 - L, 0, g + (H - lz) / 2]], c: COL.alu });
+  const parts = [partLoft(partNew(), rings)];
+  for (const xs of [0.2025, 0.6725]) for (const ys of [-0.1635, 0.1635])
+    parts.push(partCylinder(partNew(), [x0 - xs, ys, (g + 0.01) / 2], 'z', 0.015, 0.015, (g + 0.01) / 2, COL.grau, COL.grau, null, 20));
+  return parts;
+}
+
+// Würfel (Kante 1 m), Vergleich: c_W ≈ 1,05 frontal angeströmt (Hoerner), unabhängig von der Reynoldszahl
+function buildCube() {
+  const part = partNew();
+  partBox(part, [-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], () => COL.alu);
+  return [part];
+}
+
+// Modelle nur für Prüfungen (über ?modell= oder die Prüfschnittstelle)
+const TEST_MODELS = [
+  { id: 'ahmed', name: 'Ahmed-Körper', info: 'Ahmed-Körper, Heckschräge 25°, 1,044 m lang', ground: 'slip', ref: 1.044, refName: 'Länge', speed: 60, pitch: 0, build: buildAhmed, icon: 'car' },
+  { id: 'wuerfel', name: 'Würfel', info: 'Würfel, Kante 1 m', ground: null, ref: 1, refName: 'Kantenlänge', speed: 30, pitch: 0, build: buildCube, icon: 'sphere' },
+];
+
 const EXAMPLES = [
   { id: 'pkw', name: 'Pkw', info: 'Mittelklassewagen, 4,5 m lang', ground: 'slip', ref: 4.5, refName: 'Länge', speed: 30, pitch: 0, build: buildCar, icon: 'car' },
   { id: 'lkw', name: 'Lkw', info: 'Lastwagen mit Kofferaufbau, 9,6 m lang', ground: 'slip', ref: 9.6, refName: 'Länge', speed: 25, pitch: 0, build: buildTruck, icon: 'truck' },
-  { id: 'fluegel', name: 'Tragflügel', info: 'Profil NACA 2412, 1 m tief, 4 m breit', ground: null, ref: 1, refName: 'Profiltiefe', speed: 30, pitch: 8, build: buildWing, icon: 'wing' },
+  { id: 'fluegel', name: 'Tragflügel', info: 'Profil NACA 2412, 1 m tief, 4 m breit', ground: null, ref: 1, refName: 'Profiltiefe', refArea: 'grundriss', refAreaName: 'Flügelfläche', speed: 30, pitch: 8, build: buildWing, icon: 'wing' },
   { id: 'kugel', name: 'Kugel', info: 'Durchmesser 1 m', ground: null, ref: 1, refName: 'Durchmesser', speed: 10, pitch: 0, build: buildSphere, icon: 'sphere' },
   { id: 'haus', name: 'Haus', info: 'Satteldach, 10 × 8 m, 9 m hoch', ground: 'fixed', ref: 9, refName: 'Höhe', speed: 10, pitch: 0, build: buildHouse, icon: 'house' },
   { id: 'schornstein', name: 'Schornstein', info: 'Durchmesser 2 m, 12 m hoch', ground: 'fixed', ref: 2, refName: 'Durchmesser', speed: 10, pitch: 0, build: buildChimney, icon: 'chimney' },
@@ -963,28 +1024,327 @@ const D3Q19 = (() => {
   const OPP = C.map(c => C.findIndex(d => d[0] === -c[0] && d[1] === -c[1] && d[2] === -c[2]));
   return { C, W, OPP };
 })();
-const SOLID_BIT = 1 << 20;
 
-// Für jede Fluidzelle merken, aus welchen Richtungen eine feste Zelle angrenzt
-function buildInfo(solid, nx, ny, nz) {
-  const info = new Uint32Array(solid.length);
-  const C = D3Q19.C;
-  for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
-    const i = x + nx * (y + ny * z);
-    if (!solid[i]) continue;
-    info[i] |= SOLID_BIT;
-    for (let d = 1; d < 19; d++) {
-      const X = x + C[d][0], Y = y + C[d][1], Z = z + C[d][2];
-      if (X < 0 || Y < 0 || Z < 0 || X >= nx || Y >= ny || Z >= nz) continue;
-      const j = X + nx * (Y + ny * Z);
-      if (!solid[j]) info[j] |= (1 << d);
+// ---------- 4b. Wand genau erfassen ----------
+// Für jede Fluidzelle an der Wand: über welche Gitterrichtungen die Wand erreicht wird und
+// wie weit sie entlang dieser Richtung entfernt ist (q, Anteil der Verbindungslänge).
+// Damit liegt die Wand im Rechenkern an ihrer echten Stelle statt auf der Zellgrenze.
+// Dazu Wandnormale und Wandabstand je Randzelle (für das Wandmodell) und auf Wunsch
+// ein Abstandsfeld zur nächsten Wand (für das k-ω-SST-Modell).
+
+const INFO_SOLID = 0xFFFFFFFF;   // info-Wert einer festen Zelle; 0 = Fluid ohne Wand; sonst Randindex + 1
+const B_STRIDE = 8;              // u32 je Randzelle: Maske, 5 Wörter q (je 1 Byte), Zellindex, frei
+
+// Gitterlinien in Achsen- und Diagonalrichtung durch alle Zellmitten.
+// u, v: Koordinaten der Linie (ganzzahlig an Gitterpunkten), t: Lage auf der Linie (wächst um 1 je Schritt e).
+const RAY_FAMS = [
+  { e: [1, 0, 0], u: [0, 1, 0], v: [0, 0, 1], t: [1, 0, 0] },
+  { e: [0, 1, 0], u: [0, 0, 1], v: [1, 0, 0], t: [0, 1, 0] },
+  { e: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0], t: [0, 0, 1] },
+  { e: [1, 1, 0], u: [1, -1, 0], v: [0, 0, 1], t: [1, 0, 0] },
+  { e: [1, -1, 0], u: [1, 1, 0], v: [0, 0, 1], t: [1, 0, 0] },
+  { e: [1, 0, 1], u: [1, 0, -1], v: [0, 1, 0], t: [1, 0, 0] },
+  { e: [1, 0, -1], u: [1, 0, 1], v: [0, 1, 0], t: [1, 0, 0] },
+  { e: [0, 1, 1], u: [0, 1, -1], v: [1, 0, 0], t: [0, 1, 0] },
+  { e: [0, 1, -1], u: [0, 1, 1], v: [1, 0, 0], t: [0, 1, 0] },
+];
+
+// Alle Schnittpunkte der Dreiecke mit den Gitterlinien einer Familie, je Linie nach t sortiert
+function rayHits(tri, fam, nx, ny, nz) {
+  const dot = (a, x, y, z) => a[0] * x + a[1] * y + a[2] * z;
+  let umin = Infinity, umax = -Infinity, vmin = Infinity, vmax = -Infinity;
+  for (const x of [0, nx - 1]) for (const y of [0, ny - 1]) for (const z of [0, nz - 1]) {
+    const u = dot(fam.u, x, y, z), v = dot(fam.v, x, y, z);
+    umin = Math.min(umin, u); umax = Math.max(umax, u); vmin = Math.min(vmin, v); vmax = Math.max(vmax, v);
+  }
+  const nu = umax - umin + 1, nv = vmax - vmin + 1, nRay = nu * nv;
+  const EPS_U = 1.234567e-4, EPS_V = 2.345678e-4;
+  let cap = 1 << 15, ray = new Int32Array(cap), dep = new Float32Array(cap), tid = new Int32Array(cap), nh = 0;
+  const [fu0, fu1, fu2] = fam.u, [fv0, fv1, fv2] = fam.v, [ft0, ft1, ft2] = fam.t;
+  for (let k = 0; k < tri.length; k += 9) {
+    const x0 = tri[k], y0 = tri[k + 1], z0 = tri[k + 2], x1 = tri[k + 3], y1 = tri[k + 4], z1 = tri[k + 5], x2 = tri[k + 6], y2 = tri[k + 7], z2 = tri[k + 8];
+    const a0 = fu0 * x0 + fu1 * y0 + fu2 * z0, a1 = fu0 * x1 + fu1 * y1 + fu2 * z1, a2 = fu0 * x2 + fu1 * y2 + fu2 * z2;
+    const b0 = fv0 * x0 + fv1 * y0 + fv2 * z0, b1 = fv0 * x1 + fv1 * y1 + fv2 * z1, b2 = fv0 * x2 + fv1 * y2 + fv2 * z2;
+    const c0 = ft0 * x0 + ft1 * y0 + ft2 * z0, c1 = ft0 * x1 + ft1 * y1 + ft2 * z1, c2 = ft0 * x2 + ft1 * y2 + ft2 * z2;
+    const d = (a1 - a0) * (b2 - b0) - (a2 - a0) * (b1 - b0);
+    if (Math.abs(d) < 1e-12) continue;
+    const iu0 = Math.max(umin, Math.ceil(Math.min(a0, a1, a2) - EPS_U)), iu1 = Math.min(umax, Math.floor(Math.max(a0, a1, a2) - EPS_U));
+    const iv0 = Math.max(vmin, Math.ceil(Math.min(b0, b1, b2) - EPS_V)), iv1 = Math.min(vmax, Math.floor(Math.max(b0, b1, b2) - EPS_V));
+    if (iu0 > iu1 || iv0 > iv1) continue;
+    const inv = 1 / d;
+    for (let iv = iv0; iv <= iv1; iv++) {
+      const pv = iv + EPS_V;
+      for (let iu = iu0; iu <= iu1; iu++) {
+        const pu = iu + EPS_U;
+        const w1 = ((pu - a0) * (b2 - b0) - (a2 - a0) * (pv - b0)) * inv;
+        const w2 = ((a1 - a0) * (pv - b0) - (pu - a0) * (b1 - b0)) * inv;
+        const w0 = 1 - w1 - w2;
+        if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+        if (nh === cap) {
+          cap *= 2;
+          const r2 = new Int32Array(cap); r2.set(ray); ray = r2;
+          const d2 = new Float32Array(cap); d2.set(dep); dep = d2;
+          const t2 = new Int32Array(cap); t2.set(tid); tid = t2;
+        }
+        ray[nh] = (iu - umin) + nu * (iv - vmin); dep[nh] = w0 * c0 + w1 * c1 + w2 * c2; tid[nh] = k / 9; nh++;
+      }
     }
   }
-  return info;
+  const start = new Int32Array(nRay + 1);
+  for (let h = 0; h < nh; h++) start[ray[h] + 1]++;
+  for (let r = 0; r < nRay; r++) start[r + 1] += start[r];
+  const fill = start.slice(0, nRay), depth = new Float32Array(nh), tri2 = new Int32Array(nh);
+  for (let h = 0; h < nh; h++) { const p = fill[ray[h]]++; depth[p] = dep[h]; tri2[p] = tid[h]; }
+  for (let r = 0; r < nRay; r++) {
+    const a = start[r], b = start[r + 1];
+    for (let i = a + 1; i < b; i++) {
+      const v = depth[i], tv = tri2[i]; let j = i - 1;
+      while (j >= a && depth[j] > v) { depth[j + 1] = depth[j]; tri2[j + 1] = tri2[j]; j--; }
+      depth[j + 1] = v; tri2[j + 1] = tv;
+    }
+  }
+  return { fam, umin, vmin, nu, nv, start, depth, tri: tri2, hits: nh };
+}
+
+// q entlang einer Verbindung: Fluidpunkt (x,y,z), feste Zelle bei (x,y,z) + s·e.
+// Gesucht ist der Schnittpunkt, der dem Fluidpunkt am nächsten liegt; -1, wenn keiner gefunden wird.
+// Das getroffene Dreieck steht danach in hitQ.tri.
+function hitQ(H, x, y, z, s) {
+  const f = H.fam;
+  const u = f.u[0] * x + f.u[1] * y + f.u[2] * z - H.umin, v = f.v[0] * x + f.v[1] * y + f.v[2] * z - H.vmin;
+  if (u < 0 || v < 0 || u >= H.nu || v >= H.nv) return -1;
+  const r = u + H.nu * v, t0 = f.t[0] * x + f.t[1] * y + f.t[2] * z;
+  let best = -1;
+  hitQ.tri = -1;
+  for (let h = H.start[r], e = H.start[r + 1]; h < e; h++) {
+    const q = (H.depth[h] - t0) * s;
+    if (q >= -1e-4 && q <= 1 + 1e-4 && (best < 0 || q < best)) { best = q; hitQ.tri = H.tri[h]; }
+  }
+  return best < 0 ? -1 : Math.min(1, Math.max(0, best));
+}
+
+// Randzellen, q je Verbindung, Wandnormale und -abstand.
+// tri: Dreiecke in Gitterkoordinaten; solid: feste Zellen (aus voxelize)
+function buildWalls(tri, solid, nx, ny, nz, opt = {}) {
+  const N = nx * ny * nz, NXY = nx * ny, { C, W } = D3Q19;
+  const info = new Uint32Array(N);
+  // 1. feste Zellen markieren, angrenzende Fluidzellen bekommen je Richtung ein Bit
+  //    (Bit i: zwischen x und x - c_i liegt die Wand, die einlaufende Verteilung i kommt von ihr zurück; x - c_i ist
+  //    fest oder, bei dünnen Teilen (Schritt 1b), selbst eine Fluidzelle auf der anderen Seite)
+  let nSolid = 0;
+  for (let i = 0; i < N; i++) if (solid[i]) { info[i] = INFO_SOLID; nSolid++; }
+  if (nSolid) {
+    for (let d = 1; d < 19; d++) {
+      const cx = C[d][0], cy = C[d][1], cz = C[d][2], bit = 1 << d, off = cx + cy * nx + cz * NXY;
+      const x0 = Math.max(0, cx), x1 = Math.min(nx, nx + cx), y0 = Math.max(0, cy), y1 = Math.min(ny, ny + cy), z0 = Math.max(0, cz), z1 = Math.min(nz, nz + cz);
+      for (let z = z0; z < z1; z++) for (let y = y0; y < y1; y++) {
+        const row = nx * y + NXY * z;
+        for (let j = row + x0, e = row + x1; j < e; j++) if (solid[j - off] && !solid[j]) info[j] |= bit;
+      }
+    }
+  }
+  // 1b. Dünne Teile: Verbindungen zwischen zwei Fluidzellen, die die Oberfläche kreuzen (Teile dünner als eine Zelle,
+  //     etwa die Hinterkante eines Flügels, oder eine Kante, die eine schräge Verbindung abschneidet), werden ebenfalls
+  //     Wandverbindungen. Sonst strömte die Luft durch solche Stellen hindurch, als wären sie nicht da.
+  const H = RAY_FAMS.map(f => rayHits(tri, f, nx, ny, nz));
+  let thin = 0;
+  for (let f = 0; f < RAY_FAMS.length && opt.thin !== false; f++) {
+    const Hf = H[f], fam = RAY_FAMS[f], e = fam.e;
+    const dPos = C.findIndex(c => c[0] === e[0] && c[1] === e[1] && c[2] === e[2]), dNeg = C.findIndex(c => c[0] === -e[0] && c[1] === -e[1] && c[2] === -e[2]);
+    const Mi = inv3([fam.u, fam.v, fam.t]);
+    for (let r = 0, nr = Hf.nu * Hf.nv; r < nr; r++) {
+      const h0 = Hf.start[r], h1 = Hf.start[r + 1];
+      if (h0 === h1) continue;
+      const u = (r % Hf.nu) + Hf.umin, v = Math.floor(r / Hf.nu) + Hf.vmin;
+      for (let h = h0; h < h1; h++) {
+        const t = Hf.depth[h], ta = Math.floor(t);
+        if (t - ta < 1e-6) continue;
+        const ax = Math.round(Mi[0] * u + Mi[1] * v + Mi[2] * ta), ay = Math.round(Mi[3] * u + Mi[4] * v + Mi[5] * ta), az = Math.round(Mi[6] * u + Mi[7] * v + Mi[8] * ta);
+        const bx = ax + e[0], by = ay + e[1], bz = az + e[2];
+        if (ax < 0 || ay < 0 || az < 0 || ax >= nx || ay >= ny || az >= nz || bx < 0 || by < 0 || bz < 0 || bx >= nx || by >= ny || bz >= nz) continue;
+        const ia = ax + nx * ay + NXY * az, ib = bx + nx * by + NXY * bz;
+        if (solid[ia] || solid[ib]) continue;
+        if (!(info[ia] & (1 << dNeg))) thin++;
+        info[ia] |= 1 << dNeg; info[ib] |= 1 << dPos;
+      }
+    }
+  }
+  // 2. Randzellen durchnummerieren
+  let nb = 0;
+  for (let i = 0; i < N; i++) if (info[i] !== 0 && info[i] !== INFO_SOLID) nb++;
+  const blist = new Uint32Array(Math.max(1, nb) * B_STRIDE), bwall = new Float32Array(Math.max(1, nb) * 4);
+  const bcell = new Int32Array(nb);
+  let k = 0;
+  for (let i = 0; i < N; i++) {
+    const m = info[i];
+    if (m === 0 || m === INFO_SOLID) continue;
+    blist[k * B_STRIDE] = m; blist[k * B_STRIDE + 6] = i; bcell[k] = i;
+    info[i] = k + 1; k++;
+  }
+  // 3. Schnittpunkte entlang der 9 Linienfamilien
+  const famOf = new Int8Array(19), sgnOf = new Int8Array(19);
+  for (let d = 1; d < 19; d++) {
+    const v = [-C[d][0], -C[d][1], -C[d][2]];   // von der Fluidzelle zur festen Zelle
+    for (let f = 0; f < RAY_FAMS.length; f++) {
+      const e = RAY_FAMS[f].e;
+      if (e[0] === v[0] && e[1] === v[1] && e[2] === v[2]) { famOf[d] = f; sgnOf[d] = 1; }
+      if (e[0] === -v[0] && e[1] === -v[1] && e[2] === -v[2]) { famOf[d] = f; sgnOf[d] = -1; }
+    }
+  }
+  // Dreiecksnormalen (Richtung wird je Verbindung zur Fluidseite gedreht)
+  const T = tri.length / 9, tn = new Float32Array(T * 3);
+  for (let t = 0; t < T; t++) {
+    const o = t * 9;
+    const ux = tri[o + 3] - tri[o], uy = tri[o + 4] - tri[o + 1], uz = tri[o + 5] - tri[o + 2];
+    const vx = tri[o + 6] - tri[o], vy = tri[o + 7] - tri[o + 1], vz = tri[o + 8] - tri[o + 2];
+    let cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+    const l = Math.hypot(cx, cy, cz) || 1;
+    tn[t * 3] = cx / l; tn[t * 3 + 1] = cy / l; tn[t * 3 + 2] = cz / l;
+  }
+  // 4. je Randzelle: q je Verbindung; Normale aus den getroffenen Dreiecken, Abstand zur Wand
+  let links = 0, misses = 0;
+  const V = [0, 0, 0];   // Summe 2·w·c über alle Wandverbindungen (für den Druckbezug der Kräfte)
+  const px = new Float64Array(19), py = new Float64Array(19), pz = new Float64Array(19), qb = new Uint8Array(20);
+  for (let b = 0; b < nb; b++) {
+    const i = bcell[b], x = i % nx, y = ((i - x) / nx) % ny, z = (i - x - nx * y) / NXY;
+    const m = blist[b * B_STRIDE];
+    let np = 0, n0x = 0, n0y = 0, n0z = 0, ntx = 0, nty = 0, ntz = 0;
+    qb.fill(0);
+    for (let d = 1; d < 19; d++) {
+      if (!(m & (1 << d))) continue;
+      links++;
+      let q = hitQ(H[famOf[d]], x, y, z, sgnOf[d]);
+      const t = hitQ.tri;
+      if (q < 0) { q = 0.5; misses++; }
+      qb[d - 1] = Math.max(0, Math.min(255, Math.round(q * 255)));
+      q = qb[d - 1] / 255;   // mit dem gespeicherten Wert weiterrechnen
+      // Wandpunkt: x - q·c_d
+      px[np] = x - q * C[d][0]; py[np] = y - q * C[d][1]; pz[np] = z - q * C[d][2]; np++;
+      const l = Math.hypot(C[d][0], C[d][1], C[d][2]), cx = C[d][0] / l, cy = C[d][1] / l, cz = C[d][2] / l;
+      n0x += cx; n0y += cy; n0z += cz;
+      if (t >= 0) {
+        // Dreiecksnormale zur Fluidseite drehen, nahe Treffer zählen mehr
+        let ax = tn[t * 3], ay = tn[t * 3 + 1], az = tn[t * 3 + 2];
+        if (ax * cx + ay * cy + az * cz < 0) { ax = -ax; ay = -ay; az = -az; }
+        const wgt = 1 / (q * l + 0.25);
+        ntx += wgt * ax; nty += wgt * ay; ntz += wgt * az;
+      }
+      V[0] -= 2 * W[d] * C[d][0]; V[1] -= 2 * W[d] * C[d][1]; V[2] -= 2 * W[d] * C[d][2];
+    }
+    for (let w = 0; w < 5; w++) blist[b * B_STRIDE + 1 + w] = qb[w * 4] | (qb[w * 4 + 1] << 8) | (qb[w * 4 + 2] << 16) | (qb[w * 4 + 3] << 24);
+    let l0 = Math.hypot(n0x, n0y, n0z);
+    if (l0 < 1e-9) { n0x = 0; n0y = 0; n0z = 1; l0 = 1; }
+    n0x /= l0; n0y /= l0; n0z /= l0;
+    let nxw = n0x, nyw = n0y, nzw = n0z;
+    const lt = Math.hypot(ntx, nty, ntz);
+    if (lt > 1e-9 && (ntx * n0x + nty * n0y + ntz * n0z) / lt > 0.2) { nxw = ntx / lt; nyw = nty / lt; nzw = ntz / lt; }
+    // Abstand: kleinster Abstand der Wandpunkte entlang der Normalen
+    let dist = Infinity;
+    for (let p = 0; p < np; p++) dist = Math.min(dist, Math.max(0, (x - px[p]) * nxw + (y - py[p]) * nyw + (z - pz[p]) * nzw));
+    if (!Number.isFinite(dist)) dist = 0.5;
+    bwall[b * 4] = nxw; bwall[b * 4 + 1] = nyw; bwall[b * 4 + 2] = nzw; bwall[b * 4 + 3] = Math.max(0.02, Math.min(1.5, dist));
+  }
+  return { info, blist, bwall, bcell, nb, links, misses, V, nSolid, thin };
+}
+
+// Inverse einer 3×3-Matrix (Zeilen a, b, c), als flaches Feld
+function inv3([a, b, c]) {
+  const m = [a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]];
+  const A = m[4] * m[8] - m[5] * m[7], B = m[5] * m[6] - m[3] * m[8], Cc = m[3] * m[7] - m[4] * m[6];
+  const det = m[0] * A + m[1] * B + m[2] * Cc;
+  return [A / det, (m[2] * m[7] - m[1] * m[8]) / det, (m[1] * m[5] - m[2] * m[4]) / det,
+    B / det, (m[0] * m[8] - m[2] * m[6]) / det, (m[2] * m[3] - m[0] * m[5]) / det,
+    Cc / det, (m[1] * m[6] - m[0] * m[7]) / det, (m[0] * m[4] - m[1] * m[3]) / det];
+}
+
+// Abstandsfeld: Abstand jeder Zellmitte zur nächsten Wand (in Zellen).
+// Genaue euklidische Abstandstransformation zu den festen Zellen (Felzenszwalb), an den Randzellen
+// der Wandabstand aus buildWalls; fester Boden zählt als Wand.
+function wallDistance(solid, walls, nx, ny, nz, floorFixed) {
+  const N = nx * ny * nz, INF = 1e20, n = Math.max(nx, ny, nz);
+  const D = new Float32Array(N);
+  let any = false;
+  for (let i = 0; i < N; i++) { D[i] = solid[i] ? 0 : INF; if (solid[i]) any = true; }
+  if (any) {
+    const f = new Float64Array(n), out = new Float64Array(n), v = new Int32Array(n), zb = new Float64Array(n + 1);
+    const line = (base, stride, len) => {
+      for (let q = 0, i = base; q < len; q++, i += stride) f[q] = D[i];
+      // untere Hüllkurve der Parabeln (nur Stellen mit endlichem Wert)
+      let kk = -1;
+      for (let q = 0; q < len; q++) {
+        if (f[q] >= INF) continue;
+        if (kk < 0) { kk = 0; v[0] = q; zb[0] = -INF; zb[1] = INF; continue; }
+        let r = v[kk], s = ((f[q] + q * q) - (f[r] + r * r)) / (2 * q - 2 * r);
+        while (s <= zb[kk]) { kk--; r = v[kk]; s = ((f[q] + q * q) - (f[r] + r * r)) / (2 * q - 2 * r); }
+        kk++; v[kk] = q; zb[kk] = s; zb[kk + 1] = INF;
+      }
+      if (kk < 0) return;
+      kk = 0;
+      for (let q = 0; q < len; q++) {
+        while (zb[kk + 1] < q) kk++;
+        const r = v[kk];
+        out[q] = (q - r) * (q - r) + f[r];
+      }
+      for (let q = 0, i = base; q < len; q++, i += stride) D[i] = out[q];
+    };
+    const NXY = nx * ny;
+    for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) line(nx * y + NXY * z, 1, nx);
+    for (let z = 0; z < nz; z++) for (let x = 0; x < nx; x++) line(x + NXY * z, nx, ny);
+    for (let j = 0; j < NXY; j++) line(j, NXY, nz);
+  }
+  // Abstand der Mitte zur Wand: Abstand zur nächsten festen Zellmitte minus eine halbe Zelle
+  for (let i = 0; i < N; i++) D[i] = D[i] >= INF ? 1e6 : (solid[i] ? 0 : Math.max(0.5, Math.sqrt(D[i]) - 0.5));
+  if (walls) for (let b = 0; b < walls.nb; b++) D[walls.bcell[b]] = walls.bwall[b * 4 + 3];
+  if (floorFixed) {
+    const NXY = nx * ny;
+    for (let z = 0; z < nz; z++) { const h = z + 0.5; for (let j = 0; j < NXY; j++) { const i = j + NXY * z; if (!solid[i] && D[i] > h) D[i] = h; } }
+  }
+  return D;
+}
+
+// Fläche der Projektion entlang einer Gitterachse (in Zellen²), auf einem feinen Raster gezählt
+function projectedArea(tri, axis, res = 4) {
+  const a = axis === 0 ? 1 : 0, b = axis === 2 ? 1 : 2;
+  let lo0 = Infinity, hi0 = -Infinity, lo1 = Infinity, hi1 = -Infinity;
+  for (let k = 0; k < tri.length; k += 3) {
+    lo0 = Math.min(lo0, tri[k + a]); hi0 = Math.max(hi0, tri[k + a]);
+    lo1 = Math.min(lo1, tri[k + b]); hi1 = Math.max(hi1, tri[k + b]);
+  }
+  if (!(hi0 > lo0 && hi1 > lo1)) return 0;
+  // Raster: höchstens 4 Mio. Punkte
+  let r = res;
+  while ((hi0 - lo0) * (hi1 - lo1) * r * r > 4e6 && r > 0.25) r /= 2;
+  const w = Math.ceil((hi0 - lo0) * r) + 1, h = Math.ceil((hi1 - lo1) * r) + 1;
+  const img = new Uint8Array(w * h);
+  for (let k = 0; k < tri.length; k += 9) {
+    const u0 = (tri[k + a] - lo0) * r, v0 = (tri[k + b] - lo1) * r;
+    const u1 = (tri[k + 3 + a] - lo0) * r, v1 = (tri[k + 3 + b] - lo1) * r;
+    const u2 = (tri[k + 6 + a] - lo0) * r, v2 = (tri[k + 6 + b] - lo1) * r;
+    const d = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
+    if (Math.abs(d) < 1e-12) continue;
+    const inv = 1 / d;
+    const i0 = Math.max(0, Math.ceil(Math.min(u0, u1, u2) - 0.5)), i1 = Math.min(w - 1, Math.floor(Math.max(u0, u1, u2) - 0.5));
+    const j0 = Math.max(0, Math.ceil(Math.min(v0, v1, v2) - 0.5)), j1 = Math.min(h - 1, Math.floor(Math.max(v0, v1, v2) - 0.5));
+    for (let j = j0; j <= j1; j++) {
+      const pv = j + 0.5;
+      for (let i = i0; i <= i1; i++) {
+        const pu = i + 0.5;
+        const w1 = ((pu - u0) * (v2 - v0) - (u2 - u0) * (pv - v0)) * inv;
+        const w2 = ((u1 - u0) * (pv - v0) - (pu - u0) * (v1 - v0)) * inv;
+        if (w1 < 0 || w2 < 0 || w1 + w2 > 1) continue;
+        img[i + w * j] = 1;
+      }
+    }
+  }
+  let c = 0;
+  for (let i = 0; i < img.length; i++) c += img[i];
+  return c / (r * r);
 }
 
 // ---------- 5. Shader (WGSL) ----------
 // Die Strömungsrechnung wird als Text erzeugt: alle 19 Richtungen ausgeschrieben.
+// Gespeichert werden die Verteilungen als Abweichung vom Ruhezustand (f_i - w_i): das hält
+// die Rundungsfehler bei 32-Bit-Zahlen klein.
 
 function wf(x) { // Zahl als WGSL-Gleitkommazahl
   let s = Number(x).toPrecision(9);
@@ -996,9 +1356,10 @@ function cuExpr(c, u) { // c·u als Ausdruck
   ['x', 'y', 'z'].forEach((a, k) => { if (c[k] === 1) t.push(`${u}.${a}`); else if (c[k] === -1) t.push(`-${u}.${a}`); });
   return t.length ? t.join(' + ').replace(/\+ -/g, '- ') : '0.0';
 }
-function sumExpr(coef) { // Summe über f_i mit ganzzahligen Faktoren
+function sumExpr(coef, sel) { // Summe über f_i mit ganzzahligen Faktoren (sel: nur bestimmte Richtungen)
   const t = [];
   for (let i = 0; i < 19; i++) {
+    if (sel && !sel(D3Q19.C[i])) continue;
     const k = coef(D3Q19.C[i]);
     if (k === 0) continue;
     t.push((k === 1 ? '' : k === -1 ? '-' : `${wf(k)} * `) + `f${i}`);
@@ -1012,24 +1373,7 @@ function cpcExpr(c) { // c·Π·c mit Π = Nichtgleichgewichts-Spannungen
   o(c[0], c[1], 'nxy'); o(c[0], c[2], 'nxz'); o(c[1], c[2], 'nyz');
   return t.length ? t.join(' + ').replace(/\+ -/g, '- ') : '0.0';
 }
-
-const WGSL_PRM = `
-struct Prm { uin: vec4<f32>, wall: vec4<f32>, coll: vec4<f32>, flags: vec4<u32>, dims: vec4<u32>, spg: vec4<f32> };
-fn eqf(w: f32, rho: f32, cu: f32, uu: f32) -> f32 { return w * rho * (1.0 + 3.0 * cu + 4.5 * cu * cu - 1.5 * uu); }
-// Windprofil über festem Boden (Potenzgesetz 1/7), delta = Profilhöhe in Zellen
-fn prof(z: i32, delta: f32) -> f32 {
-  if (delta <= 0.0) { return 1.0; }
-  return min(1.0, pow(max((f32(z) + 0.5) / delta, 1e-4), 0.142857143));
-}
-`;
-
-// Ein Zeitschritt: Strömen (Ziehen von den Nachbarn) + Stoß (regularisiert, Smagorinsky)
-// Stoßmodell: 'rr' = rekursiv regularisiert (Standard), 'reg' = regularisiert, 'bgk', 'trt'
-let COLLISION = 'rr';
-// Breite der Schwammzone in Zellen
-function spongeW(n) { return Math.max(3, Math.min(10, Math.round(n * 0.07))); }
-
-// Versatz einer Nachbarzelle im Speicher (i32-Ausdruck mit NX, NXY) und Index der Quelle
+// Versatz einer Nachbarzelle im Speicher (i32-Ausdruck mit NX, NXY)
 function offExpr(cx, cy, cz) {
   const t = [];
   if (cx) t.push(String(cx));
@@ -1037,17 +1381,75 @@ function offExpr(cx, cy, cz) {
   if (cz) t.push(cz === 1 ? 'NXY' : '-NXY');
   return t.length ? '(' + t.join(' + ').replace(/\+ -/g, '- ') + ')' : '0';
 }
-function srcIdx(cx, cy, cz) { return `u32(ii - ${offExpr(cx, cy, cz)})`; }
+// Breite der Schwammzone in Zellen
+function spongeW(n) { return Math.max(3, Math.min(12, Math.round(n * 0.07))); }
 
-// Die Gittermaße kommen aus dem Uniform-Puffer: die Shader werden nur einmal übersetzt.
+// Konstanten des k-ω-SST-Modells (Menter 2003)
+const SST = { bs: 0.09, a1: 0.31, kap: 0.41, sk1: 0.85, sk2: 1.0, sw1: 0.5, sw2: 0.856, b1: 0.075, b2: 0.0828 };
+SST.g1 = SST.b1 / SST.bs - SST.sw1 * SST.kap * SST.kap / Math.sqrt(SST.bs);
+SST.g2 = SST.b2 / SST.bs - SST.sw2 * SST.kap * SST.kap / Math.sqrt(SST.bs);
+const WM_B = 5.2;                        // Wandgesetz: u+ = ln(y+)/κ + B
+const WM_PROBE = 1.0;                    // Abstand der Sonde von der wandnächsten Zelle (Zellen, entlang der Normalen)
+const WM_YP = [10, 30];                  // Übergang aufgelöste Wand -> Wandgesetz (y+ an der Sonde)
+const SST_DMAX = 0.08;                   // größte Diffusionszahl je Seite (k und ω)
+const ML_D = [2, 4];                     // wandnahe Mischungsweg-Viskosität: voll bis 2 Zellen Wandabstand, bei 4 Zellen null
+const ML_AP = 26;                        // Dämpfung nach van Driest (A+)
+const KW_MIN = [1e-14, 1e-8];            // Untergrenzen für k und ω (Gittereinheiten)
+
+const WGSL_PRM = `
+struct Prm {
+  uin: vec4<f32>,    // x: Wind im Gitter, y: Rauigkeit z0 in Zellen (0 = gleichförmiger Wind), z: 1/ln((h_ref+z0)/z0), w: Faktor der Wandreibung (Prüfung, sonst 1)
+  coll: vec4<f32>,   // x: Viskosität nu0, y: Anteil sigma der Stoßregel (1 = rein rekursiv regularisiert), z: Anfangsstörung, w: Stärke der Randdämpfung
+  flags: vec4<u32>,  // x: Boden (0 frei, 1 fest, 2 glatt), y: Zahl der Randzellen, z: SST-Umgebungsterme an, w: Ausgleich der u²-Anteile an der Wand an
+  dims: vec4<u32>,   // nx, ny, nz, N
+  spg: vec4<f32>,    // x: Schwammbreite Auslass, y: Schwammbreite Seiten, z: größte Wirbelviskosität, w: Cw (WALE)
+  kin: vec4<f32>,    // x: k am Einlass, y: omega am Einlass (gleichförmiger Wind), z: u* (Wind mit Bodenprofil), w: Faktor der wandnahen Mischungsweg-Viskosität (Prüfschalter, sonst 1)
+  ext: vec4<f32>,    // x, y: wandnahe Mischungsweg-Viskosität voll bis x Zellen Wandabstand, ab y Zellen null; z: Anteil turbulente Grenzschicht am Modell (0 laminar ... 1)
+};
+const SOLIDV: u32 = 0xffffffffu;
+fn geq(w: f32, dr: f32, cu: f32, uu: f32) -> f32 { return w * (dr + (1.0 + dr) * (3.0 * cu + 4.5 * cu * cu - 1.5 * uu)); }
+// Windprofil: gleichförmig oder logarithmisch über rauem Boden (Höhe der Zellmitte z + 0.5)
+fn prof(z: i32) -> f32 {
+  let z0 = prm.uin.y;
+  if (z0 <= 0.0) { return 1.0; }
+  return log((f32(z) + 0.5 + z0) / z0) * prm.uin.z;
+}
+`;
+
+// Ein Zeitschritt: Strömen (Ziehen von den Nachbarn), Wand an der echten Stelle (Bouzidi),
+// Stoß rekursiv regularisiert mit Wirbelviskosität aus dem Turbulenzkern (hybrid: Anteil 1-sigma
+// der Spannungen aus Differenzen der Geschwindigkeit). Wo das Wandgesetz greift, wird seine Schubspannung der
+// wandnächsten Zelle als Reibung abgezogen (die Haftbedingung allein reibt bei grobem Gitter und kleiner
+// Viskosität viel zu wenig). Kräfte auf das Modell per Impulsaustausch.
 function wgslStep() {
   const { C, W, OPP } = D3Q19;
+  const MIR = C.map(c => C.findIndex(d => d[0] === c[0] && d[1] === c[1] && d[2] === -c[2]));
+  const momF = (c) => { // Dichteabweichung und Impuls einer Zelle aus den Verteilungen nach dem Stoß (Zelle c)
+    let t = `  var d = 0.0; var j = vec3<f32>(0.0);\n`;
+    for (let k = 0; k < 19; k++) t += `  { let v = fs[${k}u * N + ${c}]; d = d + v;${C[k].some(Boolean) ? ` j = j + vec3<f32>(${C[k][0]}.0, ${C[k][1]}.0, ${C[k][2]}.0) * v;` : ''} }\n`;
+    return t;
+  };
   let s = WGSL_PRM + `
 @group(0) @binding(0) var<uniform> prm: Prm;
 @group(0) @binding(1) var<storage, read> fs: array<f32>;
 @group(0) @binding(2) var<storage, read_write> fd: array<f32>;
 @group(0) @binding(3) var<storage, read> info: array<u32>;
-@group(0) @binding(4) var<storage, read_write> mac: array<vec4<f32>>;
+@group(0) @binding(4) var<storage, read> blist: array<u32>;
+@group(0) @binding(5) var<storage, read> turb: array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read_write> mac: array<vec4<f32>>;
+@group(0) @binding(7) var<storage, read_write> bforce: array<vec4<f32>>;
+@group(0) @binding(8) var<storage, read> bw: array<vec4<f32>>;
+// Richtungen als Tabellen (für die Schleife beim Ausgleich der u²-Anteile)
+var<private> DCX: array<i32, 19> = array<i32, 19>(${C.map(c => c[0]).join(', ')});
+var<private> DCY: array<i32, 19> = array<i32, 19>(${C.map(c => c[1]).join(', ')});
+var<private> DCZ: array<i32, 19> = array<i32, 19>(${C.map(c => c[2]).join(', ')});
+var<private> DW: array<f32, 19> = array<f32, 19>(${W.map(wf).join(', ')});
+var<private> DOPP: array<u32, 19> = array<u32, 19>(${OPP.map(o => o + 'u').join(', ')});
+// Geschwindigkeit und Dichteabweichung einer Nachbarzelle aus ihren Verteilungen (nicht aus mac: das wird im selben Durchgang neu geschrieben)
+fn macOf(c: u32) -> vec4<f32> {
+  let N = prm.dims.w;
+${momF('c')}  return vec4<f32>(j / (1.0 + d), d);
+}
 @compute @workgroup_size(64, 1, 1)
 fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let NX = i32(prm.dims.x);
@@ -1062,44 +1464,135 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let ii = x + NX * y + NXY * z;
   let idx = u32(ii);
   let inf = info[idx];
-  if ((inf & ${SOLID_BIT}u) != 0u) { mac[idx] = vec4<f32>(0.0); return; }
-  let ui = prm.uin.xyz * prof(z, prm.wall.w);
-  let uii = dot(ui, ui);
+  if (inf == SOLIDV) { mac[idx] = vec4<f32>(0.0); return; }
+  var wl = 0u;
+  var bi = 0u;
+  var qw0 = 0u; var qw1 = 0u; var qw2 = 0u; var qw3 = 0u; var qw4 = 0u;
   let floorT = prm.flags.x;
-  let ground = floorT != 0u;
+  // Wandgesetz (aus dem Turbulenzkern): Wandschubspannung je Fläche (geteilt durch die Dichte) und Anteil;
+  // Normale der Oberfläche
+  var wm = vec4<f32>(0.0);
+  var wn = vec3<f32>(0.0, 0.0, 1.0);
+  if (inf != 0u) {
+    bi = inf - 1u;
+    let b = bi * 8u;
+    wl = blist[b]; qw0 = blist[b + 1u]; qw1 = blist[b + 2u]; qw2 = blist[b + 3u]; qw3 = blist[b + 4u]; qw4 = blist[b + 5u];
+    wn = bw[2u * bi].xyz;
+    wm = bw[2u * bi + 1u];
+  } else if (z == 0 && floorT == 1u) {
+    wm = bw[2u * (prm.flags.y + u32(x + NX * y)) + 1u];
+  }
+  var Fw = vec3<f32>(0.0);
+  var aw = vec3<f32>(0.0);
+  // Ausgleich der u²-Anteile: Die an der Wand zurückgeworfenen Verteilungen tragen Anteile ~ rho·(c·u)². An einer ebenen,
+  // gitterparallelen Wand bleibt davon nur rho·(u·n)·u übrig (fast null, die Strömung läuft dort entlang der Wand); an einer
+  // Treppenstufe wird aber nur ein Teil der Richtungen zurückgeworfen, die Anteile heben sich nicht auf und täuschen eine
+  // Kraft ~ rho·u² vor (Druckbuckel in Innenecken, Unterdruck an Außenecken). d3 sammelt diesen Impuls; er wird der Zelle
+  // wieder abgezogen und nicht als Kraft auf das Modell gezählt. Dafür: eigener Zustand aus dem letzten Schritt.
+  let wq = prm.flags.w != 0u && inf != 0u;
+  var mo = vec4<f32>(0.0);
+  if (wq) { mo = mac[idx]; }
+  let uo = mo.xyz;
+  let uuo = dot(uo, uo);
+  let ro = 1.0 + mo.w;
+  var d3 = vec3<f32>(0.0);
   let f0 = fs[idx];
 `;
-  // Ränder: vorn Einlass (Wind), seitlich/oben/unten Fernfeld (Wind, Umgebungsdruck),
-  // hinten Auslass (Verteilungen aus der Nachbarzelle übernehmen), Boden: Haftbedingung oder glatt
   for (let i = 1; i < 19; i++) {
-    const c = C[i], w = wf(W[i]);
-    const bb = `fs[${OPP[i]}u * N + idx]`;
-    const far = `eqf(${w}, 1.0, ${cuExpr(c, 'ui')}, uii)`;
-    s += `  var f${i}: f32;\n  if ((inf & ${1 << i}u) != 0u) { f${i} = ${bb}; }\n`;
-    if (c[0] === 1) s += `  else if (x == 0) { f${i} = ${far}; }\n`;
-    if (c[2] === 1) {
-      // Boden: 1 = Haftbedingung (fest), 2 = glatt (Spiegelung), 0 = kein Boden (Fernfeld)
-      const j = C.findIndex(d => d[0] === c[0] && d[1] === c[1] && d[2] === -1);
-      const okL = [c[0] === 1 ? 'x > 0' : c[0] === -1 ? 'x < NX - 1' : '', c[1] === 1 ? 'y > 0' : c[1] === -1 ? 'y < NY - 1' : ''].filter(Boolean);
-      // Liegt die Nachbarzelle am Boden im Modell, wird wie an der Wand zurückgeworfen
-      const get = `{ let s = ${srcIdx(c[0], c[1], 0)}; if ((info[s] & ${SOLID_BIT}u) != 0u) { f${i} = ${bb}; } else { f${i} = fs[${j}u * N + s]; } }`;
-      const slip = okL.length ? `if (${okL.join(' && ')}) ${get} else { f${i} = ${far}; }` : get;
-      s += `  else if (z == 0) { if (floorT == 1u) { f${i} = ${bb}; } else if (floorT == 2u) { ${slip} } else { f${i} = ${far}; } }\n`;
+    const c = C[i], o = OPP[i];
+    const qx = `f32((qw${(i - 1) >> 2} >> ${8 * ((i - 1) & 3)}u) & 255u) * ${wf(1 / 255)}`;
+    const inD = [c[0] === 1 ? 'x < NX - 1' : c[0] === -1 ? 'x > 0' : '', c[1] === 1 ? 'y < NY - 1' : c[1] === -1 ? 'y > 0' : '', c[2] === 1 ? 'z < NZ - 1' : c[2] === -1 ? 'z > 0' : ''].filter(Boolean);
+    // Wandverbindung: Wand im Abstand q (Anteil der Verbindung) Richtung x - c_i
+    s += `  var f${i}: f32;
+  if ((wl & ${1 << i}u) != 0u) {
+    let q = ${qx};
+    let go = fs[${o}u * N + idx];
+    // Nachbar auf der Fluidseite (nur wenn nicht selbst hinter einer Wand, auch einer dünnen)
+    if (q < 0.5) {
+      var gff = go;
+      ${inD.length ? `if (${inD.join(' && ')}) ` : ''}{ if ((wl & ${1 << o}u) == 0u) { gff = fs[${o}u * N + u32(ii + ${offExpr(c[0], c[1], c[2])})]; } }
+      f${i} = 2.0 * q * go + (1.0 - 2.0 * q) * gff;
+    } else {
+      f${i} = go / (2.0 * q) + (1.0 - 0.5 / q) * fs[${i}u * N + idx];
     }
-    if (c[0] === -1) {
-      const okLat = [c[1] === 1 ? 'y > 0' : c[1] === -1 ? 'y < NY - 1' : '', c[2] === 1 ? 'z > 0' : c[2] === -1 ? 'z < NZ - 1' : ''].filter(Boolean);
-      const get = `{ let s = ${srcIdx(0, c[1], c[2])}; if ((info[s] & ${SOLID_BIT}u) != 0u) { f${i} = ${bb}; } else { f${i} = fs[${i}u * N + s]; } }`;
-      s += `  else if (x == NX - 1) { ${okLat.length ? `if (${okLat.join(' && ')}) ${get} else { f${i} = ${far}; }` : get} }\n`;
-    }
-    const side = [];
-    if (c[1] === 1) side.push('y == 0');
-    if (c[1] === -1) side.push('y == NY - 1');
-    if (c[2] === -1) side.push('z == NZ - 1');
-    if (side.length) s += `  else if (${side.join(' || ')}) { f${i} = ${far}; }\n`;
-    s += `  else { f${i} = fs[${i}u * N + ${srcIdx(c[0], c[1], c[2])}]; }\n`;
+    // u²-Anteile von go und der zurückgeworfenen Verteilung, soweit aus der eigenen Zelle (Rest aus der Nachbarzelle unten)
+    if (wq) { let co = ${cuExpr(c, 'uo')}; d3 = d3 + vec3<f32>(${wf(2 * W[i] * c[0])}, ${wf(2 * W[i] * c[1])}, ${wf(2 * W[i] * c[2])}) * (ro * (4.5 * co * co - 1.5 * uuo)); }
+    Fw = Fw - vec3<f32>(${c[0]}.0, ${c[1]}.0, ${c[2]}.0) * (go + f${i});
+    aw = aw + vec3<f32>(${wf(W[i] * c[0])}, ${wf(W[i] * c[1])}, ${wf(W[i] * c[2])});
   }
-  s += `
-  let rho = ${Array.from({ length: 19 }, (_, i) => 'f' + i).join(' + ')};
+`;
+    // Einlass: wird nach allen anderen Richtungen gesetzt (Dichte aus den bekannten Verteilungen)
+    if (c[0] === 1) s += `  else if (x == 0) { f${i} = 0.0; }\n`;
+    // Boden: 1 = fest (Haftbedingung), 2 = glatt (Spiegelung), 0 = offen
+    if (c[2] === 1) {
+      const sx = c[0] === 1 ? 'x - 1' : c[0] === -1 ? 'min(x + 1, NX - 1)' : 'x';
+      const sy = c[1] === 1 ? 'max(y - 1, 0)' : c[1] === -1 ? 'min(y + 1, NY - 1)' : 'y';
+      s += `  else if (z == 0) {
+    if (floorT == 1u) { f${i} = fs[${o}u * N + idx]; }
+    else {
+      let s = u32(${sx} + NX * (${sy}));
+      if (info[s] == SOLIDV) { f${i} = fs[${o}u * N + idx]; }
+      else if (floorT == 2u) { f${i} = fs[${MIR[i]}u * N + s]; }
+      else { f${i} = fs[${i}u * N + s]; }
+    }
+  }
+`;
+    }
+    // Auslass, Seiten, Decke: offen (Verteilung der nächsten Zelle im Kanal übernehmen)
+    const outC = [c[0] === -1 ? 'x == NX - 1' : '', c[1] === 1 ? 'y == 0' : c[1] === -1 ? 'y == NY - 1' : '', c[2] === -1 ? 'z == NZ - 1' : ''].filter(Boolean);
+    if (outC.length) {
+      const sx = c[0] === -1 ? 'min(x + 1, NX - 1)' : c[0] === 1 ? 'x - 1' : 'x';
+      const sy = c[1] === 1 ? 'max(y - 1, 0)' : c[1] === -1 ? 'min(y + 1, NY - 1)' : 'y';
+      const sz = c[2] === -1 ? 'min(z + 1, NZ - 1)' : c[2] === 1 ? 'z - 1' : 'z';
+      s += `  else if (${outC.join(' || ')}) {
+    let s = u32(${sx} + NX * (${sy}) + NXY * (${sz}));
+    if (info[s] == SOLIDV) { f${i} = fs[${o}u * N + idx]; } else { f${i} = fs[${i}u * N + s]; }
+  }
+`;
+    }
+    s += `  else { f${i} = fs[${i}u * N + u32(ii - ${offExpr(c[0], c[1], c[2])})]; }\n`;
+  }
+  // Rest des Ausgleichs: bei q < 0.5 stammt ein Teil (1 - 2q) der zurückgeworfenen Verteilung aus der Nachbarzelle auf der
+  // Fluidseite, mit deren Geschwindigkeit. Als Schleife (nur an Randzellen), damit der Rechenkern klein bleibt.
+  s += `  if (wq) {
+    var qws = array<u32, 5>(qw0, qw1, qw2, qw3, qw4);
+    for (var d = 1u; d < 19u; d = d + 1u) {
+      if ((wl & (1u << d)) == 0u || (wl & (1u << DOPP[d])) != 0u) { continue; }
+      let q = f32((qws[(d - 1u) >> 2u] >> (8u * ((d - 1u) & 3u))) & 255u) * ${wf(1 / 255)};
+      let X = x + DCX[d];
+      let Y = y + DCY[d];
+      let Z = z + DCZ[d];
+      if (q >= 0.5 || X < 0 || Y < 0 || Z < 0 || X >= NX || Y >= NY || Z >= NZ) { continue; }
+      let m2 = macOf(u32(X + NX * Y + NXY * Z));
+      let cf = vec3<f32>(f32(DCX[d]), f32(DCY[d]), f32(DCZ[d]));
+      let c2 = dot(cf, m2.xyz);
+      let co = dot(cf, uo);
+      let e2 = (1.0 + m2.w) * (4.5 * c2 * c2 - 1.5 * dot(m2.xyz, m2.xyz));
+      let eo = ro * (4.5 * co * co - 1.5 * uuo);
+      d3 = d3 + cf * (DW[d] * (1.0 - 2.0 * q) * (e2 - eo));
+    }
+  }
+`;
+  // Einlass: Wind vorgegeben, aber durchlässig für Schallwellen, die von innen ankommen (Charakteristik:
+  // u = U - c_s·(rho - 1)); sonst würden sie dort voll zurückgeworfen und zwischen Einlass und Modell
+  // hin- und herlaufen. Das hält zugleich den Druck am Einlass im Mittel beim Umgebungsdruck.
+  // Dichte aus Masse und Impuls der bekannten Verteilungen: (1 + dr)(1 - u) = 1 + s0 + 2·sm.
+  const inl = [];
+  for (let i = 1; i < 19; i++) if (C[i][0] === 1) inl.push(i);
+  s += `  if (x == 0) {
+    let ut = prm.uin.x * prof(z);
+    let s0 = ${sumExpr(() => 1, c => c[0] === 0)};
+    let sm = ${sumExpr(() => 1, c => c[0] === -1)};
+    let bb = 1.0 - ut + ${wf(1 / Math.sqrt(3))};
+    let kb = s0 + 2.0 * sm + ut;
+    let dri = 2.0 * kb / (bb + sqrt(max(bb * bb + ${wf(4 / Math.sqrt(3))} * kb, 1e-6)));
+    let ux = ut - ${wf(1 / Math.sqrt(3))} * dri;
+    let uui = ux * ux;
+${inl.map(i => `    f${i} = geq(${wf(W[i])}, dri, ux, uui);`).join('\n')}
+  }
+  let dr = ${Array.from({ length: 19 }, (_, i) => 'f' + i).join(' + ')};
+  let rr = clamp(1.0 + dr, 0.3, 3.0);
+  let drc = rr - 1.0;
   let jx = ${sumExpr(c => c[0])};
   let jy = ${sumExpr(c => c[1])};
   let jz = ${sumExpr(c => c[2])};
@@ -1109,73 +1602,65 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let pxy = ${sumExpr(c => c[0] * c[1])};
   let pxz = ${sumExpr(c => c[0] * c[2])};
   let pyz = ${sumExpr(c => c[1] * c[2])};
-  let rr = clamp(rho, 0.3, 3.0);
-  var u = vec3<f32>(jx, jy, jz) / rr;
+  // Wandgesetz: Reibung rho·tau_w·Fläche entgegen der wandnahen Strömung (Fläche der Zelle an der Wand:
+  // Flächenvektor aus den Gittergewichten ihrer Wandverbindungen, auf die Wandnormale projiziert)
+  var dj = vec3<f32>(0.0);
+  if (wm.w > 0.0) { dj = -wm.w * rr * max(select(dot(6.0 * aw, wn), 1.0, inf == 0u), 0.0) * wm.xyz; }
+  var u = (vec3<f32>(jx, jy, jz) + dj - d3) / rr;
   let um = length(u);
   if (um > 0.35) { u = u * (0.35 / um); }
-  // Schwammzone an Auslass, Seiten und Decke (dämpft Druckwellen und Rückströmung)
+  // Dämpfungszone an Auslass, Seiten und Decke: der Stoß glättet dort stärker (Wirbel klingen vor dem Rand ab).
+  // Die Dichte bleibt ungedämpft: eine Dämpfung des Drucks würfe Schallwellen fast vollständig zurück.
   let dOut = f32(NX - 1 - x);
   var dSide = f32(min(min(y, NY - 1 - y), NZ - 1 - z));
-  if (!ground) { dSide = min(dSide, f32(z)); }
+  if (floorT == 0u) { dSide = min(dSide, f32(z)); }
   let sa = max(0.0, 1.0 - dOut / prm.spg.x);
   let sb = max(0.0, 1.0 - dSide / prm.spg.y);
   let spg = prm.coll.w * max(sa * sa, sb * sb);
-  let rs = mix(rr, 1.0, spg);
+  let drs = drc;
+  let rs = rr;
   let uu = dot(u, u);
-  let nxx = pxx - rr * (u.x * u.x + ${wf(1 / 3)});
-  let nyy = pyy - rr * (u.y * u.y + ${wf(1 / 3)});
-  let nzz = pzz - rr * (u.z * u.z + ${wf(1 / 3)});
-  let nxy = pxy - rr * u.x * u.y;
-  let nxz = pxz - rr * u.x * u.z;
-  let nyz = pyz - rr * u.y * u.z;
-  let q = sqrt(nxx * nxx + nyy * nyy + nzz * nzz + 2.0 * (nxy * nxy + nxz * nxz + nyz * nyz));
-  let t0 = prm.coll.x;
-  let tau = 0.5 * (t0 + sqrt(t0 * t0 + prm.coll.y * q / rr));
+  // Nichtgleichgewichts-Spannungen (aus den verschobenen Verteilungen)
+  var nxx = pxx - rr * u.x * u.x - drc * ${wf(1 / 3)};
+  var nyy = pyy - rr * u.y * u.y - drc * ${wf(1 / 3)};
+  var nzz = pzz - rr * u.z * u.z - drc * ${wf(1 / 3)};
+  var nxy = pxy - rr * u.x * u.y;
+  var nxz = pxz - rr * u.x * u.z;
+  var nyz = pyz - rr * u.y * u.z;
+  // Wirbelviskosität und Dehnrate (Differenzen) aus dem Turbulenzkern
+  let tb = turb[idx];
+  let nut = clamp(bitcast<f32>(tb.w), 0.0, prm.spg.z);
+  let tau = 0.5 + 3.0 * (prm.coll.x + nut);
+  let sg = prm.coll.y;
+  if (sg < 1.0) {
+    let s01 = unpack2x16float(tb.x);
+    let s23 = unpack2x16float(tb.y);
+    let s45 = unpack2x16float(tb.z);
+    let kf = (1.0 - sg) * ${wf(2 / 3)} * rr * tau;
+    nxx = sg * nxx - kf * s01.x; nyy = sg * nyy - kf * s01.y; nzz = sg * nzz - kf * s23.x;
+    nxy = sg * nxy - kf * s23.y; nxz = sg * nxz - kf * s45.x; nyz = sg * nyz - kf * s45.y;
+  }
   let om1 = (1.0 - 1.0 / tau) * (1.0 - spg);
   let tr3 = (nxx + nyy + nzz) * ${wf(1 / 3)};
+  // Hermite-Terme 3. Ordnung (rekursiv, auf D3Q19 darstellbar)
+  let a_xxy = rs * u.x * u.x * u.y + om1 * (2.0 * u.x * nxy + u.y * nxx);
+  let a_xxz = rs * u.x * u.x * u.z + om1 * (2.0 * u.x * nxz + u.z * nxx);
+  let a_xyy = rs * u.x * u.y * u.y + om1 * (2.0 * u.y * nxy + u.x * nyy);
+  let a_xzz = rs * u.x * u.z * u.z + om1 * (2.0 * u.z * nxz + u.x * nzz);
+  let a_yyz = rs * u.y * u.y * u.z + om1 * (2.0 * u.y * nyz + u.z * nyy);
+  let a_yzz = rs * u.y * u.z * u.z + om1 * (2.0 * u.z * nyz + u.y * nzz);
 `;
-  if (COLLISION === 'rr') {
-    // rekursiv regularisiert: zusätzlich Hermite-Terme 3. Ordnung (auf D3Q19 darstellbar)
-    s += `  let o1 = om1;
-  let a_xxy = rs * u.x * u.x * u.y + o1 * (2.0 * u.x * nxy + u.y * nxx);
-  let a_xxz = rs * u.x * u.x * u.z + o1 * (2.0 * u.x * nxz + u.z * nxx);
-  let a_xyy = rs * u.x * u.y * u.y + o1 * (2.0 * u.y * nxy + u.x * nyy);
-  let a_xzz = rs * u.x * u.z * u.z + o1 * (2.0 * u.z * nxz + u.x * nzz);
-  let a_yyz = rs * u.y * u.y * u.z + o1 * (2.0 * u.y * nyz + u.z * nyy);
-  let a_yzz = rs * u.y * u.z * u.z + o1 * (2.0 * u.z * nyz + u.y * nzz);
-`;
-    for (let i = 0; i < 19; i++) {
-      const c = C[i];
-      const h = (a, b) => a * (b * b - 1 / 3); // H_bba = c_a (c_b² − 1/3)
-      const terms = [[h(c[1], c[0]), 'a_xxy'], [h(c[2], c[0]), 'a_xxz'], [h(c[0], c[1]), 'a_xyy'], [h(c[0], c[2]), 'a_xzz'], [h(c[2], c[1]), 'a_yyz'], [h(c[1], c[2]), 'a_yzz']]
-        .filter(([k]) => Math.abs(k) > 1e-12).map(([k, n]) => `${wf(k)} * ${n}`);
-      const t3 = terms.length ? ` + ${wf(W[i] * 13.5)} * (${terms.join(' + ')})` : '';
-      s += `  fd[${i}u * N + idx] = eqf(${wf(W[i])}, rs, ${cuExpr(c, 'u')}, uu) + om1 * ${wf(W[i] * 4.5)} * (${cpcExpr(c)} - tr3)${t3};\n`;
-    }
-  } else if (COLLISION === 'bgk') {
-    s += `  let omb = 1.0 / tau;\n`;
-    for (let i = 0; i < 19; i++) {
-      const c = C[i], w = wf(W[i]), cu = cuExpr(c, 'u');
-      s += `  fd[${i}u * N + idx] = mix(f${i} - omb * (f${i} - eqf(${w}, rr, ${cu}, uu)), eqf(${w}, rs, ${cu}, uu), spg);\n`;
-    }
-  } else if (COLLISION === 'trt') {
-    // Zwei-Relaxationszeiten-Stoß (TRT, Λ = 1/4)
-    s += `  let omp = 1.0 / tau;\n  let omm = 1.0 / (0.5 + 0.25 / max(tau - 0.5, 1e-6));\n`;
-    s += `  let e0 = eqf(${wf(W[0])}, rr, 0.0, uu);\n  fd[idx] = mix(f0 - omp * (f0 - e0), eqf(${wf(W[0])}, rs, 0.0, uu), spg);\n`;
-    for (let i = 1; i < 19; i += 2) {
-      const j = OPP[i], c = C[i], w = wf(W[i]), cu = cuExpr(c, 'u');
-      s += `  { let cu = ${cu}; let ei = eqf(${w}, rr, cu, uu); let ej = eqf(${w}, rr, -cu, uu);
-    let fp = 0.5 * (f${i} + f${j}); let fm = 0.5 * (f${i} - f${j}); let ep = 0.5 * (ei + ej); let em = 0.5 * (ei - ej);
-    fd[${i}u * N + idx] = mix(f${i} - omp * (fp - ep) - omm * (fm - em), eqf(${w}, rs, cu, uu), spg);
-    fd[${j}u * N + idx] = mix(f${j} - omp * (fp - ep) + omm * (fm - em), eqf(${w}, rs, -cu, uu), spg); }\n`;
-    }
-  } else {
-    for (let i = 0; i < 19; i++) {
-      const c = C[i];
-      s += `  fd[${i}u * N + idx] = eqf(${wf(W[i])}, rs, ${cuExpr(c, 'u')}, uu) + om1 * ${wf(W[i] * 4.5)} * (${cpcExpr(c)} - tr3);\n`;
-    }
+  for (let i = 0; i < 19; i++) {
+    const c = C[i];
+    const h = (a, b) => a * (b * b - 1 / 3); // H_bba = c_a (c_b² − 1/3)
+    const terms = [[h(c[1], c[0]), 'a_xxy'], [h(c[2], c[0]), 'a_xxz'], [h(c[0], c[1]), 'a_xyy'], [h(c[0], c[2]), 'a_xzz'], [h(c[2], c[1]), 'a_yyz'], [h(c[1], c[2]), 'a_yzz']]
+      .filter(([k]) => Math.abs(k) > 1e-12).map(([k, n]) => `${wf(k)} * ${n}`);
+    const t3 = terms.length ? ` + ${wf(W[i] * 13.5)} * (${terms.join(' + ')})` : '';
+    s += `  fd[${i}u * N + idx] = geq(${wf(W[i])}, drs, ${cuExpr(c, 'u')}, uu) + om1 * ${wf(W[i] * 4.5)} * (${cpcExpr(c)} - tr3)${t3};\n`;
   }
-  s += `  mac[idx] = vec4<f32>(u, rs - 1.0);
+  s += `  mac[idx] = vec4<f32>(u, drs);
+  // Kraft auf das Modell: Impulsaustausch über die Wandverbindungen und die Reibung des Wandgesetzes
+  if (inf != 0u) { bforce[bi] = bforce[bi] + vec4<f32>(Fw - dj + d3, 0.0); }
 }
 `;
   return s;
@@ -1187,16 +1672,17 @@ function wgslInit() {
   let s = WGSL_PRM + `
 @group(0) @binding(0) var<uniform> prm: Prm;
 @group(0) @binding(1) var<storage, read_write> fa: array<f32>;
-@group(0) @binding(2) var<storage, read> info: array<u32>;
-@group(0) @binding(3) var<storage, read_write> mac: array<vec4<f32>>;
-@group(0) @binding(4) var<storage, read_write> fb: array<f32>;
+@group(0) @binding(2) var<storage, read_write> fb: array<f32>;
+@group(0) @binding(3) var<storage, read> info: array<u32>;
+@group(0) @binding(4) var<storage, read_write> mac: array<vec4<f32>>;
+@group(0) @binding(5) var<storage, read_write> turb: array<vec4<u32>>;
 @compute @workgroup_size(64, 1, 1)
 fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   if (g.x >= prm.dims.x) { return; }
   let N = prm.dims.w;
   let idx = g.x + prm.dims.x * g.y + prm.dims.x * prm.dims.y * g.z;
-  var u = prm.uin.xyz * prof(i32(g.z), prm.wall.w);
-  if ((info[idx] & ${SOLID_BIT}u) != 0u) { u = vec3<f32>(0.0); }
+  var u = vec3<f32>(prm.uin.x * prof(i32(g.z)), 0.0, 0.0);
+  if (info[idx] == SOLIDV) { u = vec3<f32>(0.0); }
   else {
     let fx = f32(g.x); let fy = f32(g.y); let fz = f32(g.z);
     let pert = vec3<f32>(0.0, sin(fx * 0.19 + fz * 0.31) * cos(fy * 0.23), sin(fy * 0.17 + fx * 0.29) * cos(fz * 0.21));
@@ -1204,13 +1690,314 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   }
   let uu = dot(u, u);
 `;
-  // beide Puffer füllen, damit auch Zellen im Modell überall definierte Werte haben
-  for (let i = 0; i < 19; i++) s += `  { let e = eqf(${wf(W[i])}, 1.0, ${cuExpr(C[i], 'u')}, uu); fa[${i}u * N + idx] = e; fb[${i}u * N + idx] = e; }\n`;
+  for (let i = 0; i < 19; i++) s += `  { let e = geq(${wf(W[i])}, 0.0, ${cuExpr(C[i], 'u')}, uu); fa[${i}u * N + idx] = e; fb[${i}u * N + idx] = e; }\n`;
   s += `  mac[idx] = vec4<f32>(u, 0.0);
+  turb[idx] = vec4<u32>(0u);
 }
 `;
   return s;
 }
+
+// k und ω am Einlass (für den Anfangszustand, den Einlass und die Umgebungsterme)
+const WGSL_INFLOW_KW = `
+fn inflowKW(z: i32) -> vec2<f32> {
+  let z0 = prm.uin.y;
+  if (z0 > 0.0) {
+    let us = prm.kin.z;
+    return vec2<f32>(us * us * ${wf(1 / Math.sqrt(SST.bs))}, us / (${wf(Math.sqrt(SST.bs) * SST.kap)} * (f32(z) + 0.5 + z0)));
+  }
+  return prm.kin.xy;
+}
+`;
+
+function wgslInitKW() {
+  return WGSL_PRM + WGSL_INFLOW_KW + `
+@group(0) @binding(0) var<uniform> prm: Prm;
+@group(0) @binding(1) var<storage, read_write> kwa: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read_write> kwb: array<vec2<f32>>;
+@compute @workgroup_size(64, 1, 1)
+fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+  if (g.x >= prm.dims.x) { return; }
+  let idx = g.x + prm.dims.x * g.y + prm.dims.x * prm.dims.y * g.z;
+  let v = inflowKW(i32(g.z));
+  kwa[idx] = v; kwb[idx] = v;
+}
+`;
+}
+
+// Turbulenzkern: Geschwindigkeitsgradient aus den Nachbarzellen (Wand an der echten Stelle),
+// daraus die Wirbelviskosität: instationär WALE, stationär k-ω SST. An Wandzellen gibt das
+// Wandgesetz (Spalding, am rauen Boden logarithmisch) die Wandschubspannung vor.
+function wgslTurb(sst) {
+  const kap = SST.kap, sbs = Math.sqrt(SST.bs);
+  let s = WGSL_PRM + WGSL_INFLOW_KW + `
+@group(0) @binding(0) var<uniform> prm: Prm;
+@group(0) @binding(1) var<storage, read> mac: array<vec4<f32>>;
+@group(0) @binding(2) var<storage, read> info: array<u32>;
+@group(0) @binding(3) var<storage, read> blist: array<u32>;
+@group(0) @binding(4) var<storage, read_write> bw: array<vec4<f32>>;
+@group(0) @binding(5) var<storage, read_write> turb: array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read> wd: array<f32>;
+${sst ? `@group(0) @binding(7) var<storage, read> kwi: array<vec2<f32>>;
+@group(0) @binding(8) var<storage, read_write> kwo: array<vec2<f32>>;` : ''}
+const EKB: f32 = ${wf(Math.exp(-kap * WM_B))};
+// Wandgesetz nach Spalding: u+ zu Re_d = d·u_t/nu (Newton, startet oberhalb der Lösung)
+fn spaldingUp(red: f32) -> f32 {
+  if (red < 1e-8) { return 1e-4; }
+  var up = min(sqrt(red), ${wf(1 / kap)} * log(max(red, 1.0)) + ${wf(WM_B + 1)});
+  for (var it = 0; it < 12; it = it + 1) {
+    let k = ${wf(kap)} * up;
+    let ek = exp(k);
+    let e = EKB * (ek - 1.0 - k - 0.5 * k * k - k * k * k * ${wf(1 / 6)});
+    let de = EKB * ${wf(kap)} * (ek - 1.0 - k - 0.5 * k * k);
+    let gg = up * up + up * e - red;
+    let dg = 2.0 * up + e + up * de;
+    up = max(up - gg / dg, 0.5 * up);
+  }
+  return max(up, 1e-4);
+}
+// Geschwindigkeit an einem Punkt zwischen den Zellmitten (trilinear; feste Zellen haben u = 0)
+fn probeU(p: vec3<f32>) -> vec3<f32> {
+  let hi = vec3<f32>(f32(prm.dims.x) - 1.0, f32(prm.dims.y) - 1.0, f32(prm.dims.z) - 1.0);
+  let q = clamp(p, vec3<f32>(0.0), hi);
+  let b = min(floor(q), hi - vec3<f32>(1.0));
+  let f = q - b;
+  let NX = prm.dims.x;
+  let NXY = prm.dims.x * prm.dims.y;
+  let i0 = u32(b.x) + NX * u32(b.y) + NXY * u32(b.z);
+  let c00 = mix(mac[i0].xyz, mac[i0 + 1u].xyz, f.x);
+  let c10 = mix(mac[i0 + NX].xyz, mac[i0 + NX + 1u].xyz, f.x);
+  let c01 = mix(mac[i0 + NXY].xyz, mac[i0 + NXY + 1u].xyz, f.x);
+  let c11 = mix(mac[i0 + NXY + NX].xyz, mac[i0 + NXY + NX + 1u].xyz, f.x);
+  return mix(mix(c00, c10, f.y), mix(c01, c11, f.y), f.z);
+}
+fn qOf(bi: u32, d: u32) -> f32 {
+  let w = blist[bi * 8u + 1u + ((d - 1u) >> 2u)];
+  return max(f32((w >> (8u * ((d - 1u) & 3u))) & 255u) * ${wf(1 / 255)}, 0.2);
+}
+@compute @workgroup_size(64, 1, 1)
+fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+  let NX = i32(prm.dims.x);
+  let NY = i32(prm.dims.y);
+  let NZ = i32(prm.dims.z);
+  let NXY = NX * NY;
+  let x = i32(g.x);
+  if (x >= NX) { return; }
+  let y = i32(g.y);
+  let z = i32(g.z);
+  let idx = u32(x + NX * y + NXY * z);
+  let inf = info[idx];
+  if (inf == SOLIDV) { turb[idx] = vec4<u32>(0u);${sst ? ' kwo[idx] = kwi[idx];' : ''} return; }
+  let isB = inf != 0u;
+  let bi = select(0u, inf - 1u, isB);
+  // Wandverbindungen dieser Zelle (Bit d: von x - c_d kommt die Wand; auch dünne Wände zwischen zwei Fluidzellen)
+  let wlm = select(0u, blist[bi * 8u], isB);
+  let floorT = prm.flags.x;
+  let nu0 = prm.coll.x;
+  let u0 = mac[idx].xyz;
+  var hm: f32; var hp: f32; var vm: vec3<f32>; var vp: vec3<f32>;
+  // Wandgesetz an der wandnächsten Zelle: die Geschwindigkeit an einer Sonde eine Zelle weiter draußen (entlang
+  // der Wandnormalen) ergibt u_tau und damit die Wandschubspannung tau_w = rho·u_tau². Sie wird im Schritt als
+  // Reibung abgezogen; die Zelle selbst bleibt eine gewöhnliche Zelle an einer Wand mit Haftbedingung (ein
+  // Zurücksetzen ihrer Geschwindigkeit auf das Wandgesetz würde die Impulsflüsse zur Nachbarzelle verfälschen).
+  // Anteil wmW: 0 bei kleinem y+ (Grenzschicht aufgelöst, Haftbedingung reicht), 1 im logarithmischen Bereich.
+  var wall = false;
+  var utau = 0.0;
+  var dW = 1.0;
+  var dEff = 1.0;
+  var rough = false;
+  var wmW = 0.0;
+  var tdir = vec3<f32>(0.0);
+  var ndir = vec3<f32>(0.0, 0.0, 1.0);
+  var bwi = 0u;
+  if (isB) {
+    let bwv = bw[2u * bi];
+    ndir = bwv.xyz; dW = bwv.w; dEff = dW;
+    let yp = dW + ${wf(WM_PROBE)};
+    let u3 = probeU(vec3<f32>(f32(x), f32(y), f32(z)) + ${wf(WM_PROBE)} * ndir);
+    let upn = dot(u3, ndir);
+    let upt = u3 - upn * ndir;
+    let utp = length(upt);
+    if (utp > 1e-12) { tdir = upt / utp; }
+    utau = utp / spaldingUp(yp * utp / nu0);
+    wmW = smoothstep(${wf(WM_YP[0])}, ${wf(WM_YP[1])}, yp * utau / nu0);
+    wall = true; bwi = 2u * bi + 1u;
+  } else if (z == 0 && floorT == 1u) {
+    let u3 = mac[idx + u32(NXY)].xyz;
+    let upt = vec3<f32>(u3.x, u3.y, 0.0);
+    let utp = length(upt);
+    if (utp > 1e-12) { tdir = upt / utp; }
+    dW = 0.5;
+    let z0 = prm.uin.y;
+    if (z0 > 0.0) {
+      // rauer Boden: logarithmisches Wandgesetz mit z0 (Sonde in der Zelle darüber, Höhe 1,5)
+      utau = ${wf(kap)} * utp / log((1.5 + z0) / z0);
+      dEff = dW + z0; rough = true;
+      wmW = 1.0;
+    } else {
+      utau = utp / spaldingUp(1.5 * utp / nu0);
+      wmW = smoothstep(${wf(WM_YP[0])}, ${wf(WM_YP[1])}, 1.5 * utau / nu0);
+    }
+    wall = true; bwi = 2u * (prm.flags.y + u32(x + NX * y)) + 1u;
+  }
+  // Wandschubspannung (je Fläche, geteilt durch die Dichte) für den Schritt
+  // am Modell nur der turbulente Anteil (bei kleiner Reynoldszahl bleibt die Grenzschicht laminar), am Boden immer
+  if (wall) { bw[bwi] = vec4<f32>(prm.uin.w * select(1.0, prm.ext.z, isB) * utau * utau * tdir, wmW); }
+`;
+  // Seiten: [Achse, Bedingung Rand minus, Rand-Regel minus, Richtung (Wand minus), Bedingung plus, Regel plus, Richtung plus, Versatz]
+  const ax = [
+    ['X', 'x == 0', 'hm = 1.0; vm = vec3<f32>(prm.uin.x * prof(z), 0.0, 0.0);', 1, 'x == NX - 1', 'hp = 1.0; vp = u0;', 2, '1u'],
+    ['Y', 'y == 0', 'hm = 1.0; vm = u0;', 3, 'y == NY - 1', 'hp = 1.0; vp = u0;', 4, 'u32(NX)'],
+    ['Z', 'z == 0', 'if (floorT == 1u) { hm = 0.5; vm = vec3<f32>(0.0); } else if (floorT == 2u) { hm = 1.0; vm = vec3<f32>(u0.x, u0.y, -u0.z); } else { hm = 1.0; vm = u0; }', 5, 'z == NZ - 1', 'hp = 1.0; vp = u0;', 6, 'u32(NXY)'],
+  ];
+  for (const [A, cm, rm, dm, cp, rp, dp, off] of ax) {
+    s += `  if (${cm}) { ${rm} }
+  else { let n = idx - ${off}; if ((wlm & ${1 << dm}u) != 0u) { hm = qOf(bi, ${dm}u); vm = vec3<f32>(0.0); } else { hm = 1.0; vm = mac[n].xyz; } }
+  if (${cp}) { ${rp} }
+  else { let n = idx + ${off}; if ((wlm & ${1 << dp}u) != 0u) { hp = qOf(bi, ${dp}u); vp = vec3<f32>(0.0); } else { hp = 1.0; vp = mac[n].xyz; } }
+  let g${A} = (hm * hm * vp - hp * hp * vm - (hm * hm - hp * hp) * u0) / (hm * hp * (hm + hp));
+`;
+  }
+  s += `  // G[i][j] = du_i/dx_j
+  let g11 = gX.x; let g12 = gY.x; let g13 = gZ.x;
+  let g21 = gX.y; let g22 = gY.y; let g23 = gZ.y;
+  let g31 = gX.z; let g32 = gY.z; let g33 = gZ.z;
+  let sxx = g11; let syy = g22; let szz = g33;
+  let sxy = 0.5 * (g12 + g21); let sxz = 0.5 * (g13 + g31); let syz = 0.5 * (g23 + g32);
+  let SS = sxx * sxx + syy * syy + szz * szz + 2.0 * (sxy * sxy + sxz * sxz + syz * syz);
+  // wandnah (bis prm.ext.y Zellen): Mischungsweg-Viskosität (Prandtl, mit Wirbelstärke und Dämpfung nach van Driest)
+  // für die turbulente Grenzschicht, die dieses Gitter nicht auflöst; sie trägt Impuls zur Wand
+  let dWall = wd[idx];
+  let omg = sqrt((g32 - g23) * (g32 - g23) + (g13 - g31) * (g13 - g31) + (g21 - g12) * (g21 - g12));
+  let lmx = ${wf(kap)} * dWall * clamp((prm.ext.y - dWall) / max(prm.ext.y - prm.ext.x, 1e-3), 0.0, 1.0);
+  let dmp = 1.0 - exp(-${wf(kap / ML_AP)} * dWall * dWall * omg / nu0);
+  // laminare Grenzschicht am Modell (kleine Reynoldszahl): dort keine Mischungsweg-Viskosität; am festen Boden (Gebäude)
+  // bleibt sie, wenn er die nächste Wand ist
+  let floorNear = floorT == 1u && dWall >= f32(z) + 0.499;
+  let nearModel = !floorNear && dWall < prm.ext.y;
+  let nutML = prm.kin.w * select(prm.ext.z, 1.0, floorNear) * lmx * lmx * omg * dmp * dmp;
+`;
+  if (!sst) {
+    s += `  // WALE: verschwindet in reiner Scherung und an der Wand, erfasst Wirbel
+  let h11 = g11 * g11 + g12 * g21 + g13 * g31; let h12 = g11 * g12 + g12 * g22 + g13 * g32; let h13 = g11 * g13 + g12 * g23 + g13 * g33;
+  let h21 = g21 * g11 + g22 * g21 + g23 * g31; let h22 = g21 * g12 + g22 * g22 + g23 * g32; let h23 = g21 * g13 + g22 * g23 + g23 * g33;
+  let h31 = g31 * g11 + g32 * g21 + g33 * g31; let h32 = g31 * g12 + g32 * g22 + g33 * g32; let h33 = g31 * g13 + g32 * g23 + g33 * g33;
+  let trh = (h11 + h22 + h33) * ${wf(1 / 3)};
+  let d11 = h11 - trh; let d22 = h22 - trh; let d33 = h33 - trh;
+  let d12 = 0.5 * (h12 + h21); let d13 = 0.5 * (h13 + h31); let d23 = 0.5 * (h23 + h32);
+  let DD = d11 * d11 + d22 * d22 + d33 * d33 + 2.0 * (d12 * d12 + d13 * d13 + d23 * d23);
+  let cw = prm.spg.w;
+  let nutL = max(cw * cw * DD * sqrt(DD) / (SS * SS * sqrt(SS) + DD * sqrt(sqrt(DD)) + 1e-30), nutML);
+  // an der Wandzelle nur der Anteil ohne Wandgesetz (sonst rieben Haftbedingung und Wandgesetz doppelt)
+  let nutOut = select(nutL, (1.0 - wmW) * nutL, wall);
+`;
+  } else {
+    // k und ω der sechs Nachbarn: Fluid -> Wert, Einlass -> Einlasswerte, sonst wie die Zelle (kein Fluss)
+    const sides = [
+      ['xm', 'x == 0', 'let v = inflowKW(z); kxm = v.x; wxm = v.y; axm = 1.0;', 'idx - 1u'],
+      ['xp', 'x == NX - 1', '', 'idx + 1u'],
+      ['ym', 'y == 0', '', 'idx - u32(NX)'],
+      ['yp', 'y == NY - 1', '', 'idx + u32(NX)'],
+      ['zm', 'z == 0', '', 'idx - u32(NXY)'],
+      ['zp', 'z == NZ - 1', '', 'idx + u32(NXY)'],
+    ];
+    s += `  let kw0 = kwi[idx];
+  let k0 = max(kw0.x, ${wf(KW_MIN[0])});
+  let w0 = max(kw0.y, ${wf(KW_MIN[1])});
+`;
+    // Bit der Wandverbindung zur jeweiligen Seite (Verteilung kommt von dort: xm -> +x = 1, xp -> -x = 2, ...)
+    for (const [n, cond, rule, nidx, bit] of sides.map((sd, k) => [...sd, k + 1])) {
+      s += `  var k${n} = k0; var w${n} = w0; var a${n} = 0.0;
+  if (${cond}) { ${rule} }
+  else { let n = ${nidx}; if ((wlm & ${1 << bit}u) == 0u) { let v = kwi[n]; k${n} = max(v.x, ${wf(KW_MIN[0])}); w${n} = max(v.y, ${wf(KW_MIN[1])}); a${n} = 1.0; } }
+`;
+    }
+    s += `  let dw = max(wd[idx], 0.02);
+  let gk = 0.5 * vec3<f32>(kxp - kxm, kyp - kym, kzp - kzm);
+  let gw = 0.5 * vec3<f32>(wxp - wxm, wyp - wym, wzp - wzm);
+  let cdkw = max(${wf(2 * SST.sw2)} * dot(gk, gw) / w0, 1e-20);
+  let sk = sqrt(k0);
+  let t1 = sk / (${wf(SST.bs)} * w0 * dw);
+  let t2 = 500.0 * nu0 / (dw * dw * w0);
+  let arg1 = min(min(max(t1, t2), ${wf(4 * SST.sw2)} * k0 / (cdkw * dw * dw)), 10.0);
+  let F1 = tanh(min(arg1 * arg1 * arg1 * arg1, 15.0));
+  let arg2 = min(max(2.0 * t1, t2), 10.0);
+  let F2 = tanh(min(arg2 * arg2, 15.0));
+  let sigk = mix(${wf(SST.sk2)}, ${wf(SST.sk1)}, F1);
+  let sigw = mix(${wf(SST.sw2)}, ${wf(SST.sw1)}, F1);
+  let beta = mix(${wf(SST.b2)}, ${wf(SST.b1)}, F1);
+  let gam = mix(${wf(SST.g2)}, ${wf(SST.g1)}, F1);
+  let smag = sqrt(2.0 * SS);
+  let nutS = ${wf(SST.a1)} * k0 / max(${wf(SST.a1)} * w0, smag * F2);
+  let pk = min(nutS * 2.0 * SS, ${wf(10 * SST.bs)} * k0 * w0);
+  let pw = gam * pk / max(nutS, 1e-20);
+  let cd = 2.0 * (1.0 - F1) * ${wf(SST.sw2)} * dot(gk, gw) / w0;
+  // Umgebungsterme: halten k und ω der Anströmung bis zum Modell (Spalart & Rumsey)
+  var ambK = 0.0; var ambW = 0.0;
+  if (prm.flags.z == 1u) { let a = inflowKW(z); ambK = ${wf(SST.bs)} * a.x * a.y; ambW = ${wf(SST.b2)} * a.y * a.y; }
+  // Aufwind-Konvektion, Diffusion über die sechs Seiten; Mitte implizit (bleibt positiv und beschränkt)
+  let ux = abs(u0.x); let uy = abs(u0.y); let uz = abs(u0.z);
+  let up = u0 > vec3<f32>(0.0);
+  let ak = ux * select(kxp, kxm, up.x) + uy * select(kyp, kym, up.y) + uz * select(kzp, kzm, up.z);
+  let aw = ux * select(wxp, wxm, up.x) + uy * select(wyp, wym, up.y) + uz * select(wzp, wzm, up.z);
+  let au = ux + uy + uz;
+  let r0 = k0 / w0;
+  let dkxm = axm * min(nu0 + sigk * 0.5 * (r0 + kxm / wxm), ${wf(SST_DMAX)}); let dwxm = axm * min(nu0 + sigw * 0.5 * (r0 + kxm / wxm), ${wf(SST_DMAX)});
+  let dkxp = axp * min(nu0 + sigk * 0.5 * (r0 + kxp / wxp), ${wf(SST_DMAX)}); let dwxp = axp * min(nu0 + sigw * 0.5 * (r0 + kxp / wxp), ${wf(SST_DMAX)});
+  let dkym = aym * min(nu0 + sigk * 0.5 * (r0 + kym / wym), ${wf(SST_DMAX)}); let dwym = aym * min(nu0 + sigw * 0.5 * (r0 + kym / wym), ${wf(SST_DMAX)});
+  let dkyp = ayp * min(nu0 + sigk * 0.5 * (r0 + kyp / wyp), ${wf(SST_DMAX)}); let dwyp = ayp * min(nu0 + sigw * 0.5 * (r0 + kyp / wyp), ${wf(SST_DMAX)});
+  let dkzm = azm * min(nu0 + sigk * 0.5 * (r0 + kzm / wzm), ${wf(SST_DMAX)}); let dwzm = azm * min(nu0 + sigw * 0.5 * (r0 + kzm / wzm), ${wf(SST_DMAX)});
+  let dkzp = azp * min(nu0 + sigk * 0.5 * (r0 + kzp / wzp), ${wf(SST_DMAX)}); let dwzp = azp * min(nu0 + sigw * 0.5 * (r0 + kzp / wzp), ${wf(SST_DMAX)});
+  let sdk = dkxm + dkxp + dkym + dkyp + dkzm + dkzp;
+  let sdw = dwxm + dwxp + dwym + dwyp + dwzm + dwzp;
+  let nk = dkxm * kxm + dkxp * kxp + dkym * kym + dkyp * kyp + dkzm * kzm + dkzp * kzp;
+  let nw = dwxm * wxm + dwxp * wxp + dwym * wym + dwyp * wyp + dwzm * wzm + dwzp * wzp;
+  var pkU = pk;
+  var w1: f32;
+  if (wall) {
+    // Wandzelle: Erzeugung aus dem Wandgesetz, ω fest (Übergang viskos/logarithmisch)
+    let ypl = dW * utau / nu0;
+    pkU = utau * utau * utau / (${wf(kap)} * dEff) * select(1.0 - exp(-ypl / 11.0), 1.0, rough);
+    let wlog = utau / (${wf(sbs * kap)} * dEff);
+    let wvis = select(${wf(6 / SST.b1)} * nu0 / (dW * dW), 0.0, rough);
+    w1 = max(sqrt(wvis * wvis + wlog * wlog), ${wf(KW_MIN[1])});
+  } else {
+    w1 = max((w0 + aw + nw + pw + max(cd, 0.0) + ambW) / (1.0 + au + sdw + beta * w0 + max(-cd, 0.0) / w0), ${wf(KW_MIN[1])});
+  }
+  let k1 = max((k0 + ak + nk + pkU + ambK) / (1.0 + au + sdk + ${wf(SST.bs)} * w0), ${wf(KW_MIN[0])});
+  kwo[idx] = vec2<f32>(k1, w1);
+  // laminare Grenzschicht am Modell: SST-Wirbelviskosität dort mit dem turbulenten Anteil malnehmen (wie die Mischungsweg-Viskosität)
+  let nutS1 = max(select(1.0, prm.ext.z, nearModel) * ${wf(SST.a1)} * k1 / max(${wf(SST.a1)} * w1, smag * F2), nutML);
+  let nutOut = select(nutS1, (1.0 - wmW) * nutS1, wall);
+`;
+  }
+  s += `  turb[idx] = vec4<u32>(pack2x16float(vec2<f32>(sxx, syy)), pack2x16float(vec2<f32>(szz, sxy)), pack2x16float(vec2<f32>(sxz, syz)), bitcast<u32>(min(nutOut, prm.spg.z)));
+}
+`;
+  return s;
+}
+
+// Kräfte: Beiträge der Randzellen aufsummieren (je Arbeitsgruppe eine Teilsumme) und zurücksetzen
+const WGSL_REDUCE = `
+@group(0) @binding(0) var<uniform> rp: vec4<u32>;
+@group(0) @binding(1) var<storage, read_write> bf: array<vec4<f32>>;
+@group(0) @binding(2) var<storage, read_write> part: array<vec4<f32>>;
+var<workgroup> sh: array<vec4<f32>, 256>;
+@compute @workgroup_size(256)
+fn main(@builtin(local_invocation_id) l: vec3<u32>, @builtin(workgroup_id) w: vec3<u32>) {
+  let a = w.x * rp.y;
+  let b = min(a + rp.y, rp.x);
+  var s = vec4<f32>(0.0);
+  for (var i = a + l.x; i < b; i = i + 256u) { s = s + bf[i]; bf[i] = vec4<f32>(0.0); }
+  sh[l.x] = s;
+  workgroupBarrier();
+  for (var st = 128u; st > 0u; st = st >> 1u) {
+    if (l.x < st) { sh[l.x] = sh[l.x] + sh[l.x + st]; }
+    workgroupBarrier();
+  }
+  if (l.x == 0u) { part[w.x] = sh[0]; }
+}
+`;
 
 // Feld in eine 3D-Textur kopieren (optional zeitlich gemittelt); in festen Zellen
 // wird der Druck der Nachbarn eingetragen, damit die Oberfläche sauber eingefärbt wird.
@@ -1225,7 +2012,7 @@ struct CP { alpha: f32, mode: u32, refx: u32, p1: u32, dims: vec4<u32> };
 @group(0) @binding(3) var<storage, read_write> avg: array<vec4<f32>>;
 @group(0) @binding(4) var tex: texture_storage_3d<rgba16float, write>;
 @group(0) @binding(5) var<storage, read_write> stat: array<atomic<u32>, 4>;
-fn rd(i: u32) -> vec4<f32> { return mac[i]; }
+const SOLIDV: u32 = 0xffffffffu;
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let D = cp.dims;
@@ -1233,24 +2020,24 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   if (g.x >= D.x || g.y >= D.y || g.z >= D.z) { return; }
   let idx = g.x + D.x * g.y + DXY * g.z;
   var v: vec4<f32>;
-  if ((info[idx] & ${SOLID_BIT}u) != 0u) {
+  if (info[idx] == SOLIDV) {
     var s = 0.0;
     var c = 0.0;
 `;
   for (const [cond, sign, off] of nb) {
-    s += `    if (${cond}) { let j = idx ${sign} ${off}; if ((info[j] & ${SOLID_BIT}u) == 0u) { s = s + rd(j).w; c = c + 1.0; } }\n`;
+    s += `    if (${cond}) { let j = idx ${sign} ${off}; if (info[j] != SOLIDV) { s = s + mac[j].w; c = c + 1.0; } }\n`;
   }
   s += `    v = vec4<f32>(0.0, 0.0, 0.0, select(0.0, s / max(c, 1.0), c > 0.0));
   } else {
-    v = rd(idx);
+    v = mac[idx];
     // Überwachung: größte Geschwindigkeit (auch unendlich/NaN) für die Stabilitätsprüfung
     let sp = length(v.xyz);
     let b = bitcast<u32>(sp);
-    if ((b & 0x7f800000u) == 0x7f800000u) { atomicMax(&stat[0], 0x7f800000u); }
+    if ((b & 0x7f800000u) == 0x7f800000u || (bitcast<u32>(v.w) & 0x7f800000u) == 0x7f800000u) { atomicMax(&stat[0], 0x7f800000u); }
     else if (sp > ${wf(1.5 * U_LB)}) { atomicMax(&stat[0], b); }
     // Bezugsdruck: Mittelwert in einer Ebene kurz hinter dem Einlass
     if (g.x == cp.refx) {
-      atomicAdd(&stat[1], bitcast<u32>(i32(round(v.w * 1e4))));
+      atomicAdd(&stat[1], bitcast<u32>(i32(round(v.w * ${wf(PREF_SCALE)}))));
       atomicAdd(&stat[2], 1u);
     }
   }
@@ -1532,19 +2319,36 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) @interpolate(flat)
 `;
 
 // ---------- 5b. Rechnung auf dem Prozessor (zum Prüfen der Grafikkarte) ----------
-// Dieselben Regeln wie wgslInit/wgslStep, aber in JavaScript und doppelter Genauigkeit.
-// Wird beim Start auf einem kleinen Gitter mit der Grafikkarte verglichen.
+// Dieselben Regeln wie die Shader (Schritt, Turbulenzkern, Anfangszustand), aber in JavaScript
+// und doppelter Genauigkeit. Beim Start wird auf kleinen Gittern mit der Grafikkarte verglichen.
 
-function refEq(w, rho, cu, uu) { return w * rho * (1 + 3 * cu + 4.5 * cu * cu - 1.5 * uu); }
-function refProf(z, delta) { return delta > 0 ? Math.min(1, Math.pow(Math.max((z + 0.5) / delta, 1e-4), 1 / 7)) : 1; }
+const PREF_SCALE = 1e5;   // Bezugsdruck: Ganzzahl-Summe mit diesem Faktor
 
-// P: { nx, ny, nz, uin: [ux,uy,uz], delta, floor, tau0, csmag, noise, sponge, spgX, spgY }
-function refInit(fa, fb, mac, info, P) {
+// Rundung auf 16-Bit-Gleitkommazahl (wie pack2x16float)
+const f16r = typeof Math.f16round === 'function' ? Math.f16round : (x) => {
+  if (!Number.isFinite(x) || x === 0) return x;
+  const s = Math.sign(x), a = Math.abs(x);
+  if (a >= 65520) return s * Infinity;
+  if (a < 6.103515625e-5) return s * Math.round(a / 5.960464477539063e-8) * 5.960464477539063e-8;
+  const step = Math.pow(2, Math.floor(Math.log2(a)) - 10);
+  return s * Math.round(a / step) * step;
+};
+
+function refGeq(w, dr, cu, uu) { return w * (dr + (1 + dr) * (3 * cu + 4.5 * cu * cu - 1.5 * uu)); }
+function refProf(z, P) { return P.z0 > 0 ? Math.log((z + 0.5 + P.z0) / P.z0) * P.pnorm : 1; }
+function refInflowKW(z, P) {
+  if (P.z0 > 0) return [P.ustar * P.ustar / Math.sqrt(SST.bs), P.ustar / (Math.sqrt(SST.bs) * SST.kap * (z + 0.5 + P.z0))];
+  return [P.kin, P.win];
+}
+
+// P: { nx, ny, nz, uin, z0, pnorm, nu0, sigma, noise, sponge, floor, amb, spgX, spgY, nutMax, cw, kin, win, ustar,
+//      nb, reib, ml, wand, mlD0, mlD1, turb } (die letzten sechs wahlweise, sonst wie im Programm)
+function refInit(fa, fb, mac, turb, info, P) {
   const { C, W } = D3Q19, { nx, ny, nz } = P, N = nx * ny * nz;
   for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
-    const idx = x + nx * (y + ny * z), pr = refProf(z, P.delta);
-    let u = [P.uin[0] * pr, P.uin[1] * pr, P.uin[2] * pr];
-    if (info[idx] & SOLID_BIT) u = [0, 0, 0];
+    const idx = x + nx * (y + ny * z);
+    let u = [P.uin * refProf(z, P), 0, 0];
+    if (info[idx] === INFO_SOLID) u = [0, 0, 0];
     else {
       const l = Math.hypot(u[0], u[1], u[2]);
       const pert = [0, Math.sin(x * 0.19 + z * 0.31) * Math.cos(y * 0.23), Math.sin(y * 0.17 + x * 0.29) * Math.cos(z * 0.21)];
@@ -1552,164 +2356,490 @@ function refInit(fa, fb, mac, info, P) {
     }
     const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
     for (let i = 0; i < 19; i++) {
-      const e = refEq(W[i], 1, C[i][0] * u[0] + C[i][1] * u[1] + C[i][2] * u[2], uu);
+      const e = refGeq(W[i], 0, C[i][0] * u[0] + C[i][1] * u[1] + C[i][2] * u[2], uu);
       fa[i * N + idx] = e; fb[i * N + idx] = e;
     }
     mac[idx * 4] = u[0]; mac[idx * 4 + 1] = u[1]; mac[idx * 4 + 2] = u[2]; mac[idx * 4 + 3] = 0;
+    for (let k = 0; k < 7; k++) turb[idx * 7 + k] = 0;
   }
 }
 
-function refStep(fs, fd, mac, info, P) {
-  const { C, W, OPP } = D3Q19, { nx: NX, ny: NY, nz: NZ } = P, NXY = NX * NY, N = NXY * NZ;
-  const MIR = C.map(c => C.findIndex(d => d[0] === c[0] && d[1] === c[1] && d[2] === -c[2]));
-  const C2 = 18 * Math.SQRT2 * P.csmag * P.csmag, ground = P.floor !== 0;
-  const f = new Float64Array(19);
+function refInitKW(kwa, kwb, P) {
+  const { nx, ny, nz } = P;
+  for (let z = 0; z < nz; z++) {
+    const v = refInflowKW(z, P);
+    for (let j = 0; j < nx * ny; j++) { const i = j + nx * ny * z; kwa[i * 2] = kwb[i * 2] = v[0]; kwa[i * 2 + 1] = kwb[i * 2 + 1] = v[1]; }
+  }
+}
+
+function refQ(blist, bi, d) { const w = blist[bi * B_STRIDE + 1 + ((d - 1) >> 2)]; return ((w >>> (8 * ((d - 1) & 3))) & 255) / 255; }
+
+// trilinear wie probeU im Shader
+function refProbeU(mac, P, px, py, pz) {
+  const hx = P.nx - 1, hy = P.ny - 1, hz = P.nz - 1;
+  const qx = Math.min(Math.max(px, 0), hx), qy = Math.min(Math.max(py, 0), hy), qz = Math.min(Math.max(pz, 0), hz);
+  const bx = Math.min(Math.floor(qx), hx - 1), by = Math.min(Math.floor(qy), hy - 1), bz = Math.min(Math.floor(qz), hz - 1);
+  const fx = qx - bx, fy = qy - by, fz = qz - bz, NX = P.nx, NXY = P.nx * P.ny, i0 = bx + NX * by + NXY * bz;
+  const out = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    const m = (i) => mac[i * 4 + k], l = (a, b, t) => a + (b - a) * t;
+    const c00 = l(m(i0), m(i0 + 1), fx), c10 = l(m(i0 + NX), m(i0 + NX + 1), fx), c01 = l(m(i0 + NXY), m(i0 + NXY + 1), fx), c11 = l(m(i0 + NXY + NX), m(i0 + NXY + NX + 1), fx);
+    out[k] = l(l(c00, c10, fy), l(c01, c11, fy), fz);
+  }
+  return out;
+}
+function refSmooth(a, b, x) { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); }
+
+function refSpaldingUp(red) {
+  if (red < 1e-8) return 1e-4;
+  const kap = SST.kap, ekb = Math.exp(-kap * WM_B);
+  let up = Math.min(Math.sqrt(red), Math.log(Math.max(red, 1)) / kap + WM_B + 1);
+  for (let it = 0; it < 12; it++) {
+    const k = kap * up, ek = Math.exp(k);
+    const e = ekb * (ek - 1 - k - 0.5 * k * k - k * k * k / 6), de = ekb * kap * (ek - 1 - k - 0.5 * k * k);
+    const gg = up * up + up * e - red, dg = 2 * up + e + up * de;
+    up = Math.max(up - gg / dg, 0.5 * up);
+  }
+  return Math.max(up, 1e-4);
+}
+
+// feste Tabellen für die Referenzrechnung (einmal berechnet)
+let REF_T = null;
+function refTables() {
+  if (REF_T) return REF_T;
+  const { C, W, OPP } = D3Q19;
+  const cx = new Int8Array(19), cy = new Int8Array(19), cz = new Int8Array(19), mir = new Int8Array(19), h3 = new Float64Array(19 * 6);
+  for (let i = 0; i < 19; i++) {
+    const c = C[i];
+    cx[i] = c[0]; cy[i] = c[1]; cz[i] = c[2];
+    mir[i] = C.findIndex(d => d[0] === c[0] && d[1] === c[1] && d[2] === -c[2]);
+    const h = (p, q) => p * (q * q - 1 / 3);
+    h3.set([h(c[1], c[0]), h(c[2], c[0]), h(c[0], c[1]), h(c[0], c[2]), h(c[2], c[1]), h(c[1], c[2])], i * 6);
+  }
+  REF_T = { cx, cy, cz, mir, h3, W: Float64Array.from(W), OPP: Int8Array.from(OPP), f: new Float64Array(19), g: new Float64Array(9) };
+  return REF_T;
+}
+
+// Ableitung entlang einer Achse aus drei Punkten mit Abständen hm (minus) und hp (plus)
+function refD(hm, vm, hp, vp, v0) { return (hm * hm * vp - hp * hp * vm - (hm * hm - hp * hp) * v0) / (hm * hp * (hm + hp)); }
+
+// Turbulenzkern (sst = false: WALE, true: k-ω SST mit kwi -> kwo)
+function refTurb(mac, info, blist, bw, turb, P, sst, wd, kwi, kwo) {
+  const NX = P.nx, NY = P.ny, NZ = P.nz, NXY = NX * NY, nu0 = P.nu0;
+  const kap = SST.kap, sbs = Math.sqrt(SST.bs), KMIN = KW_MIN[0], WMIN = KW_MIN[1];
+  const G = refTables().g;
+  const offs = [1, NX, NXY];
   for (let z = 0; z < NZ; z++) for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
     const idx = x + NX * y + NXY * z, inf = info[idx];
-    if (inf & SOLID_BIT) { mac[idx * 4] = mac[idx * 4 + 1] = mac[idx * 4 + 2] = mac[idx * 4 + 3] = 0; continue; }
-    const pr = refProf(z, P.delta), ui = [P.uin[0] * pr, P.uin[1] * pr, P.uin[2] * pr];
-    const uii = ui[0] * ui[0] + ui[1] * ui[1] + ui[2] * ui[2];
-    f[0] = fs[idx];
-    for (let i = 1; i < 19; i++) {
-      const c = C[i], bb = fs[OPP[i] * N + idx], far = refEq(W[i], 1, c[0] * ui[0] + c[1] * ui[1] + c[2] * ui[2], uii);
-      if (inf & (1 << i)) f[i] = bb;
-      else if (c[0] === 1 && x === 0) f[i] = far;
-      else if (c[2] === 1 && z === 0) {
-        if (P.floor === 1) f[i] = bb;
-        else if (P.floor === 2) {
-          const ok = (c[0] === 1 ? x > 0 : c[0] === -1 ? x < NX - 1 : true) && (c[1] === 1 ? y > 0 : c[1] === -1 ? y < NY - 1 : true);
-          if (ok) { const s = idx - (c[0] + c[1] * NX); f[i] = (info[s] & SOLID_BIT) ? bb : fs[MIR[i] * N + s]; } else f[i] = far;
-        } else f[i] = far;
+    if (inf === INFO_SOLID) {
+      for (let k = 0; k < 7; k++) turb[idx * 7 + k] = 0;
+      if (sst) { kwo[idx * 2] = kwi[idx * 2]; kwo[idx * 2 + 1] = kwi[idx * 2 + 1]; }
+      continue;
+    }
+    const isB = inf !== 0, bi = isB ? inf - 1 : 0, wlm = isB ? blist[bi * B_STRIDE] : 0;
+    const u0x = mac[idx * 4], u0y = mac[idx * 4 + 1], u0z = mac[idx * 4 + 2];
+    // Wandgesetz (wie im Shader): Wandschubspannung aus der Sonde eine Zelle weiter draußen
+    let wall = false, utau = 0, dW = 1, dEff = 1, rough = false, wmW = 0, bwi = 0;
+    let tdir = [0, 0, 0], ndir = [0, 0, 1];
+    if (isB) {
+      ndir = [bw[bi * 8], bw[bi * 8 + 1], bw[bi * 8 + 2]]; dW = bw[bi * 8 + 3]; dEff = dW;
+      const yp = dW + WM_PROBE;
+      const u3 = refProbeU(mac, P, x + WM_PROBE * ndir[0], y + WM_PROBE * ndir[1], z + WM_PROBE * ndir[2]);
+      const upn = u3[0] * ndir[0] + u3[1] * ndir[1] + u3[2] * ndir[2];
+      const upt = [u3[0] - upn * ndir[0], u3[1] - upn * ndir[1], u3[2] - upn * ndir[2]], utp = Math.hypot(...upt);
+      if (utp > 1e-12) tdir = upt.map(v => v / utp);
+      utau = utp / refSpaldingUp(yp * utp / nu0);
+      wmW = refSmooth(WM_YP[0], WM_YP[1], yp * utau / nu0);
+      wall = true; bwi = (2 * bi + 1) * 4;
+    } else if (z === 0 && P.floor === 1) {
+      const a = (idx + NXY) * 4, u3 = [mac[a], mac[a + 1], mac[a + 2]];
+      const upt = [u3[0], u3[1], 0], utp = Math.hypot(u3[0], u3[1]);
+      if (utp > 1e-12) tdir = upt.map(v => v / utp);
+      dW = 0.5;
+      if (P.z0 > 0) {
+        utau = kap * utp / Math.log((1.5 + P.z0) / P.z0); dEff = dW + P.z0; rough = true;
+        wmW = 1;
+      } else {
+        utau = utp / refSpaldingUp(1.5 * utp / nu0);
+        wmW = refSmooth(WM_YP[0], WM_YP[1], 1.5 * utau / nu0);
       }
-      else if (c[0] === -1 && x === NX - 1) {
-        const ok = (c[1] === 1 ? y > 0 : c[1] === -1 ? y < NY - 1 : true) && (c[2] === 1 ? z > 0 : c[2] === -1 ? z < NZ - 1 : true);
-        if (ok) { const s = idx - (c[1] * NX + c[2] * NXY); f[i] = (info[s] & SOLID_BIT) ? bb : fs[i * N + s]; } else f[i] = far;
+      wall = true; bwi = (2 * (P.nb + x + NX * y) + 1) * 4;
+    }
+    const fr = (P.reib != null ? P.reib : 1) * (isB ? (P.turb != null ? P.turb : 1) : 1);
+    if (wall) { bw[bwi] = fr * utau * utau * tdir[0]; bw[bwi + 1] = fr * utau * utau * tdir[1]; bw[bwi + 2] = fr * utau * utau * tdir[2]; bw[bwi + 3] = wmW; }
+    // Gradient: Spalte a = d u / d x_a
+    for (let a = 0; a < 3; a++) {
+      const pos = a === 0 ? x : a === 1 ? y : z, n = a === 0 ? NX : a === 1 ? NY : NZ, off = offs[a];
+      let hm, vmx, vmy, vmz, hp, vpx, vpy, vpz;
+      if (pos === 0) {
+        if (a === 0) { hm = 1; vmx = P.uin * refProf(z, P); vmy = 0; vmz = 0; }
+        else if (a === 2 && P.floor === 1) { hm = 0.5; vmx = vmy = vmz = 0; }
+        else if (a === 2 && P.floor === 2) { hm = 1; vmx = u0x; vmy = u0y; vmz = -u0z; }
+        else { hm = 1; vmx = u0x; vmy = u0y; vmz = u0z; }
+      } else {
+        const m = idx - off;
+        if (wlm & (1 << (2 * a + 1))) { hm = Math.max(refQ(blist, bi, 2 * a + 1), 0.2); vmx = vmy = vmz = 0; }
+        else { hm = 1; vmx = mac[m * 4]; vmy = mac[m * 4 + 1]; vmz = mac[m * 4 + 2]; }
       }
-      else if ((c[1] === 1 && y === 0) || (c[1] === -1 && y === NY - 1) || (c[2] === -1 && z === NZ - 1)) f[i] = far;
-      else f[i] = fs[i * N + idx - (c[0] + c[1] * NX + c[2] * NXY)];
+      if (pos === n - 1) { hp = 1; vpx = u0x; vpy = u0y; vpz = u0z; }
+      else {
+        const m = idx + off;
+        if (wlm & (1 << (2 * a + 2))) { hp = Math.max(refQ(blist, bi, 2 * a + 2), 0.2); vpx = vpy = vpz = 0; }
+        else { hp = 1; vpx = mac[m * 4]; vpy = mac[m * 4 + 1]; vpz = mac[m * 4 + 2]; }
+      }
+      G[a] = refD(hm, vmx, hp, vpx, u0x);       // du_x/dx_a
+      G[3 + a] = refD(hm, vmy, hp, vpy, u0y);   // du_y/dx_a
+      G[6 + a] = refD(hm, vmz, hp, vpz, u0z);   // du_z/dx_a
     }
-    let rho = 0, jx = 0, jy = 0, jz = 0, pxx = 0, pyy = 0, pzz = 0, pxy = 0, pxz = 0, pyz = 0;
-    for (let i = 0; i < 19; i++) {
-      const c = C[i], v = f[i];
-      rho += v; jx += v * c[0]; jy += v * c[1]; jz += v * c[2];
-      pxx += v * c[0] * c[0]; pyy += v * c[1] * c[1]; pzz += v * c[2] * c[2];
-      pxy += v * c[0] * c[1]; pxz += v * c[0] * c[2]; pyz += v * c[1] * c[2];
+    const g11 = G[0], g12 = G[1], g13 = G[2], g21 = G[3], g22 = G[4], g23 = G[5], g31 = G[6], g32 = G[7], g33 = G[8];
+    const sxx = g11, syy = g22, szz = g33, sxy = 0.5 * (g12 + g21), sxz = 0.5 * (g13 + g31), syz = 0.5 * (g23 + g32);
+    const SS = sxx * sxx + syy * syy + szz * szz + 2 * (sxy * sxy + sxz * sxz + syz * syz);
+    // wandnahe Mischungsweg-Viskosität (wie im Shader)
+    const dWall = wd[idx], omg = Math.sqrt((g32 - g23) ** 2 + (g13 - g31) ** 2 + (g21 - g12) ** 2);
+    const mD0 = P.mlD0 != null ? P.mlD0 : ML_D[0], mD1 = P.mlD1 != null ? P.mlD1 : ML_D[1];
+    const lmx = kap * dWall * Math.min(Math.max((mD1 - dWall) / Math.max(mD1 - mD0, 1e-3), 0), 1);
+    const dmp = 1 - Math.exp(-kap / ML_AP * dWall * dWall * omg / nu0);
+    // laminare Grenzschicht am Modell (wie im Shader)
+    const turbF = P.turb != null ? P.turb : 1, floorNear = P.floor === 1 && dWall >= z + 0.499, nearModel = !floorNear && dWall < mD1;
+    const nutML = (P.ml != null ? P.ml : 1) * (floorNear ? 1 : turbF) * lmx * lmx * omg * dmp * dmp;
+    let nutOut;
+    if (!sst) {
+      const h11 = g11 * g11 + g12 * g21 + g13 * g31, h12 = g11 * g12 + g12 * g22 + g13 * g32, h13 = g11 * g13 + g12 * g23 + g13 * g33;
+      const h21 = g21 * g11 + g22 * g21 + g23 * g31, h22 = g21 * g12 + g22 * g22 + g23 * g32, h23 = g21 * g13 + g22 * g23 + g23 * g33;
+      const h31 = g31 * g11 + g32 * g21 + g33 * g31, h32 = g31 * g12 + g32 * g22 + g33 * g32, h33 = g31 * g13 + g32 * g23 + g33 * g33;
+      const trh = (h11 + h22 + h33) / 3;
+      const d11 = h11 - trh, d22 = h22 - trh, d33 = h33 - trh, d12 = 0.5 * (h12 + h21), d13 = 0.5 * (h13 + h31), d23 = 0.5 * (h23 + h32);
+      const DD = d11 * d11 + d22 * d22 + d33 * d33 + 2 * (d12 * d12 + d13 * d13 + d23 * d23);
+      const nutL = Math.max(P.cw * P.cw * DD * Math.sqrt(DD) / (SS * SS * Math.sqrt(SS) + DD * Math.sqrt(Math.sqrt(DD)) + 1e-30), nutML);
+      nutOut = wall ? (1 - wmW) * nutL : nutL;
+    } else {
+      const k0 = Math.max(kwi[idx * 2], KMIN), w0 = Math.max(kwi[idx * 2 + 1], WMIN);
+      // Nachbarn: xm, xp, ym, yp, zm, zp
+      let kxm = k0, wxm = w0, axm = 0, kxp = k0, wxp = w0, axp = 0, kym = k0, wym = w0, aym = 0, kyp = k0, wyp = w0, ayp = 0, kzm = k0, wzm = w0, azm = 0, kzp = k0, wzp = w0, azp = 0;
+      if (x === 0) { const v = refInflowKW(z, P); kxm = v[0]; wxm = v[1]; axm = 1; }
+      // Nachbar nur, wenn keine Wand dazwischen liegt (Bit 1..6 der Wandverbindungen, auch dünne Wände)
+      else { const n = idx - 1; if (!(wlm & 2)) { kxm = Math.max(kwi[n * 2], KMIN); wxm = Math.max(kwi[n * 2 + 1], WMIN); axm = 1; } }
+      if (x !== NX - 1) { const n = idx + 1; if (!(wlm & 4)) { kxp = Math.max(kwi[n * 2], KMIN); wxp = Math.max(kwi[n * 2 + 1], WMIN); axp = 1; } }
+      if (y !== 0) { const n = idx - NX; if (!(wlm & 8)) { kym = Math.max(kwi[n * 2], KMIN); wym = Math.max(kwi[n * 2 + 1], WMIN); aym = 1; } }
+      if (y !== NY - 1) { const n = idx + NX; if (!(wlm & 16)) { kyp = Math.max(kwi[n * 2], KMIN); wyp = Math.max(kwi[n * 2 + 1], WMIN); ayp = 1; } }
+      if (z !== 0) { const n = idx - NXY; if (!(wlm & 32)) { kzm = Math.max(kwi[n * 2], KMIN); wzm = Math.max(kwi[n * 2 + 1], WMIN); azm = 1; } }
+      if (z !== NZ - 1) { const n = idx + NXY; if (!(wlm & 64)) { kzp = Math.max(kwi[n * 2], KMIN); wzp = Math.max(kwi[n * 2 + 1], WMIN); azp = 1; } }
+      const dw = Math.max(wd[idx], 0.02);
+      const gkx = 0.5 * (kxp - kxm), gky = 0.5 * (kyp - kym), gkz = 0.5 * (kzp - kzm);
+      const gwx = 0.5 * (wxp - wxm), gwy = 0.5 * (wyp - wym), gwz = 0.5 * (wzp - wzm);
+      const gkgw = gkx * gwx + gky * gwy + gkz * gwz;
+      const cdkw = Math.max(2 * SST.sw2 * gkgw / w0, 1e-20);
+      const t1 = Math.sqrt(k0) / (SST.bs * w0 * dw), t2 = 500 * nu0 / (dw * dw * w0);
+      const arg1 = Math.min(Math.min(Math.max(t1, t2), 4 * SST.sw2 * k0 / (cdkw * dw * dw)), 10);
+      const F1 = Math.tanh(Math.min(arg1 * arg1 * arg1 * arg1, 15));
+      const arg2 = Math.min(Math.max(2 * t1, t2), 10);
+      const F2 = Math.tanh(Math.min(arg2 * arg2, 15));
+      const sigk = SST.sk2 + (SST.sk1 - SST.sk2) * F1, sigw = SST.sw2 + (SST.sw1 - SST.sw2) * F1;
+      const beta = SST.b2 + (SST.b1 - SST.b2) * F1, gam = SST.g2 + (SST.g1 - SST.g2) * F1;
+      const smag = Math.sqrt(2 * SS);
+      const nutS = SST.a1 * k0 / Math.max(SST.a1 * w0, smag * F2);
+      const pk = Math.min(nutS * 2 * SS, 10 * SST.bs * k0 * w0);
+      const pw = gam * pk / Math.max(nutS, 1e-20);
+      const cd = 2 * (1 - F1) * SST.sw2 * gkgw / w0;
+      let ambK = 0, ambW = 0;
+      if (P.amb) { const a = refInflowKW(z, P); ambK = SST.bs * a[0] * a[1]; ambW = SST.b2 * a[1] * a[1]; }
+      const ux = Math.abs(u0x), uy = Math.abs(u0y), uz = Math.abs(u0z);
+      const ak = ux * (u0x > 0 ? kxm : kxp) + uy * (u0y > 0 ? kym : kyp) + uz * (u0z > 0 ? kzm : kzp);
+      const aw = ux * (u0x > 0 ? wxm : wxp) + uy * (u0y > 0 ? wym : wyp) + uz * (u0z > 0 ? wzm : wzp);
+      const au = ux + uy + uz, r0 = k0 / w0, DM = SST_DMAX;
+      const dkxm = axm * Math.min(nu0 + sigk * 0.5 * (r0 + kxm / wxm), DM), dwxm = axm * Math.min(nu0 + sigw * 0.5 * (r0 + kxm / wxm), DM);
+      const dkxp = axp * Math.min(nu0 + sigk * 0.5 * (r0 + kxp / wxp), DM), dwxp = axp * Math.min(nu0 + sigw * 0.5 * (r0 + kxp / wxp), DM);
+      const dkym = aym * Math.min(nu0 + sigk * 0.5 * (r0 + kym / wym), DM), dwym = aym * Math.min(nu0 + sigw * 0.5 * (r0 + kym / wym), DM);
+      const dkyp = ayp * Math.min(nu0 + sigk * 0.5 * (r0 + kyp / wyp), DM), dwyp = ayp * Math.min(nu0 + sigw * 0.5 * (r0 + kyp / wyp), DM);
+      const dkzm = azm * Math.min(nu0 + sigk * 0.5 * (r0 + kzm / wzm), DM), dwzm = azm * Math.min(nu0 + sigw * 0.5 * (r0 + kzm / wzm), DM);
+      const dkzp = azp * Math.min(nu0 + sigk * 0.5 * (r0 + kzp / wzp), DM), dwzp = azp * Math.min(nu0 + sigw * 0.5 * (r0 + kzp / wzp), DM);
+      const sdk = dkxm + dkxp + dkym + dkyp + dkzm + dkzp, sdw = dwxm + dwxp + dwym + dwyp + dwzm + dwzp;
+      const nk = dkxm * kxm + dkxp * kxp + dkym * kym + dkyp * kyp + dkzm * kzm + dkzp * kzp;
+      const nw = dwxm * wxm + dwxp * wxp + dwym * wym + dwyp * wyp + dwzm * wzm + dwzp * wzp;
+      let pkU = pk, w1;
+      if (wall) {
+        const ypl = dW * utau / nu0;
+        pkU = utau * utau * utau / (kap * dEff) * (rough ? 1 : 1 - Math.exp(-ypl / 11));
+        const wlog = utau / (sbs * kap * dEff), wvis = rough ? 0 : 6 / SST.b1 * nu0 / (dW * dW);
+        w1 = Math.max(Math.sqrt(wvis * wvis + wlog * wlog), WMIN);
+      } else {
+        w1 = Math.max((w0 + aw + nw + pw + Math.max(cd, 0) + ambW) / (1 + au + sdw + beta * w0 + Math.max(-cd, 0) / w0), WMIN);
+      }
+      const k1 = Math.max((k0 + ak + nk + pkU + ambK) / (1 + au + sdk + SST.bs * w0), KMIN);
+      kwo[idx * 2] = k1; kwo[idx * 2 + 1] = w1;
+      const nutS1 = Math.max((nearModel ? turbF : 1) * SST.a1 * k1 / Math.max(SST.a1 * w1, smag * F2), nutML);
+      nutOut = wall ? (1 - wmW) * nutS1 : nutS1;
     }
-    const rr = Math.min(3, Math.max(0.3, rho));
-    let u = [jx / rr, jy / rr, jz / rr];
-    const um = Math.hypot(u[0], u[1], u[2]);
-    if (um > 0.35) u = u.map(v => v * 0.35 / um);
-    const dOut = NX - 1 - x;
-    let dSide = Math.min(Math.min(y, NY - 1 - y), NZ - 1 - z);
-    if (!ground) dSide = Math.min(dSide, z);
-    const sa = Math.max(0, 1 - dOut / P.spgX), sb = Math.max(0, 1 - dSide / P.spgY);
-    const spg = P.sponge * Math.max(sa * sa, sb * sb);
-    const rs = rr + (1 - rr) * spg;
-    const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
-    const nxx = pxx - rr * (u[0] * u[0] + 1 / 3), nyy = pyy - rr * (u[1] * u[1] + 1 / 3), nzz = pzz - rr * (u[2] * u[2] + 1 / 3);
-    const nxy = pxy - rr * u[0] * u[1], nxz = pxz - rr * u[0] * u[2], nyz = pyz - rr * u[1] * u[2];
-    const q = Math.sqrt(nxx * nxx + nyy * nyy + nzz * nzz + 2 * (nxy * nxy + nxz * nxz + nyz * nyz));
-    const t0 = P.tau0, tau = 0.5 * (t0 + Math.sqrt(t0 * t0 + C2 * q / rr));
-    const om1 = (1 - 1 / tau) * (1 - spg), tr3 = (nxx + nyy + nzz) / 3;
-    const [ux, uy, uz] = u;
-    const a = {
-      xxy: rs * ux * ux * uy + om1 * (2 * ux * nxy + uy * nxx), xxz: rs * ux * ux * uz + om1 * (2 * ux * nxz + uz * nxx),
-      xyy: rs * ux * uy * uy + om1 * (2 * uy * nxy + ux * nyy), xzz: rs * ux * uz * uz + om1 * (2 * uz * nxz + ux * nzz),
-      yyz: rs * uy * uy * uz + om1 * (2 * uy * nyz + uz * nyy), yzz: rs * uy * uz * uz + om1 * (2 * uz * nyz + uy * nzz),
-    };
-    for (let i = 0; i < 19; i++) {
-      const c = C[i], h = (p, b) => p * (b * b - 1 / 3);
-      const cpc = c[0] * c[0] * nxx + c[1] * c[1] * nyy + c[2] * c[2] * nzz + 2 * (c[0] * c[1] * nxy + c[0] * c[2] * nxz + c[1] * c[2] * nyz);
-      const t3 = h(c[1], c[0]) * a.xxy + h(c[2], c[0]) * a.xxz + h(c[0], c[1]) * a.xyy + h(c[0], c[2]) * a.xzz + h(c[2], c[1]) * a.yyz + h(c[1], c[2]) * a.yzz;
-      fd[i * N + idx] = refEq(W[i], rs, c[0] * ux + c[1] * uy + c[2] * uz, uu) + om1 * W[i] * 4.5 * (cpc - tr3) + W[i] * 13.5 * t3;
-    }
-    mac[idx * 4] = ux; mac[idx * 4 + 1] = uy; mac[idx * 4 + 2] = uz; mac[idx * 4 + 3] = rs - 1;
+    const o = idx * 7;
+    turb[o] = f16r(sxx); turb[o + 1] = f16r(syy); turb[o + 2] = f16r(szz); turb[o + 3] = f16r(sxy); turb[o + 4] = f16r(sxz); turb[o + 5] = f16r(syz);
+    turb[o + 6] = Math.min(nutOut, P.nutMax);
   }
 }
 
-// Kleines Testgitter: Quader im Kanal, wahlweise auf dem Boden
-function refCase(floor) {
-  const nx = 24, ny = 12, nz = 10, N = nx * ny * nz, solid = new Uint8Array(N);
-  const z0 = floor ? 0 : 3;
-  for (let z = z0; z < z0 + 4; z++) for (let y = 4; y < 8; y++) for (let x = 8; x < 12; x++) solid[x + nx * (y + ny * z)] = 1;
-  return {
-    nx, ny, nz, N, solid, info: buildInfo(solid, nx, ny, nz),
-    P: { nx, ny, nz, uin: [U_LB, 0, 0], delta: floor === 1 ? 6 : 0, floor, tau0: 0.5 + 3 * NU_MIN, csmag: C_SMAG, noise: 0.02, sponge: SPONGE, spgX: spongeW(nx), spgY: spongeW(Math.min(ny, nz)) },
+function refStep(fs, fd, info, blist, turb, mac, bforce, P, bw) {
+  const NX = P.nx, NY = P.ny, NZ = P.nz, NXY = NX * NY, N = NXY * NZ;
+  const T = refTables(), { cx, cy, cz, mir, h3, W, OPP, f } = T;
+  for (let z = 0; z < NZ; z++) for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const ii = x + NX * y + NXY * z, inf = info[ii];
+    if (inf === INFO_SOLID) { mac[ii * 4] = mac[ii * 4 + 1] = mac[ii * 4 + 2] = mac[ii * 4 + 3] = 0; continue; }
+    let wl = 0, bi = 0, wo = -1, wnx = 0, wny = 0, wnz = 1;
+    if (inf !== 0) { bi = inf - 1; wl = blist[bi * B_STRIDE]; wo = (2 * bi + 1) * 4; wnx = bw[bi * 8]; wny = bw[bi * 8 + 1]; wnz = bw[bi * 8 + 2]; }
+    else if (z === 0 && P.floor === 1) wo = (2 * (P.nb + x + NX * y) + 1) * 4;
+    const ww = wo >= 0 ? bw[wo + 3] : 0;
+    let Fx = 0, Fy = 0, Fz = 0, ax = 0, ay = 0, az = 0;
+    // Ausgleich der u²-Anteile an Treppenstufen (wie im Shader)
+    const wq = (P.wand == null || P.wand !== 0) && inf !== 0;
+    const uox = wq ? mac[ii * 4] : 0, uoy = wq ? mac[ii * 4 + 1] : 0, uoz = wq ? mac[ii * 4 + 2] : 0, dro = wq ? mac[ii * 4 + 3] : 0;
+    const uuo = uox * uox + uoy * uoy + uoz * uoz;
+    let d3x = 0, d3y = 0, d3z = 0;
+    const eq2 = (w, d, cu, uu) => w * (1 + d) * (4.5 * cu * cu - 1.5 * uu);
+    f[0] = fs[ii];
+    for (let i = 1; i < 19; i++) {
+      const ex = cx[i], ey = cy[i], ez = cz[i], o = OPP[i];
+      if (wl & (1 << i)) {
+        const q = refQ(blist, bi, i), go = fs[o * N + ii];
+        const eo = wq ? eq2(W[i], dro, ex * uox + ey * uoy + ez * uoz, uuo) : 0;
+        let e = 2 * eo;
+        if (q < 0.5) {
+          let gff = go;
+          const X = x + ex, Y = y + ey, Z = z + ez;
+          // Nachbar auf der Fluidseite, nur wenn nicht selbst hinter einer Wand (auch einer dünnen)
+          if (X >= 0 && Y >= 0 && Z >= 0 && X < NX && Y < NY && Z < NZ && !(wl & (1 << o))) {
+            const ff = X + NX * Y + NXY * Z;
+            gff = fs[o * N + ff];
+            if (wq) {
+              let d = 0, jx = 0, jy = 0, jz = 0;
+              for (let k = 0; k < 19; k++) { const v = fs[k * N + ff]; d += v; jx += cx[k] * v; jy += cy[k] * v; jz += cz[k] * v; }
+              const u2x = jx / (1 + d), u2y = jy / (1 + d), u2z = jz / (1 + d);
+              e += (1 - 2 * q) * (eq2(W[i], d, ex * u2x + ey * u2y + ez * u2z, u2x * u2x + u2y * u2y + u2z * u2z) - eo);
+            }
+          }
+          f[i] = 2 * q * go + (1 - 2 * q) * gff;
+        } else f[i] = go / (2 * q) + (1 - 0.5 / q) * fs[i * N + ii];
+        d3x += ex * e; d3y += ey * e; d3z += ez * e;
+        const m = go + f[i];
+        Fx -= ex * m; Fy -= ey * m; Fz -= ez * m;
+        ax += W[i] * ex; ay += W[i] * ey; az += W[i] * ez;
+      } else if (ex === 1 && x === 0) f[i] = 0;
+      else if (ez === 1 && z === 0) {
+        if (P.floor === 1) f[i] = fs[o * N + ii];
+        else {
+          const sx = ex === 1 ? x - 1 : ex === -1 ? Math.min(x + 1, NX - 1) : x;
+          const sy = ey === 1 ? Math.max(y - 1, 0) : ey === -1 ? Math.min(y + 1, NY - 1) : y;
+          const s = sx + NX * sy;
+          if (info[s] === INFO_SOLID) f[i] = fs[o * N + ii];
+          else if (P.floor === 2) f[i] = fs[mir[i] * N + s];
+          else f[i] = fs[i * N + s];
+        }
+      } else if ((ex === -1 && x === NX - 1) || (ey === 1 && y === 0) || (ey === -1 && y === NY - 1) || (ez === -1 && z === NZ - 1)) {
+        const sx = ex === -1 ? Math.min(x + 1, NX - 1) : ex === 1 ? x - 1 : x;
+        const sy = ey === 1 ? Math.max(y - 1, 0) : ey === -1 ? Math.min(y + 1, NY - 1) : y;
+        const sz = ez === -1 ? Math.min(z + 1, NZ - 1) : ez === 1 ? z - 1 : z;
+        const s = sx + NX * sy + NXY * sz;
+        f[i] = info[s] === INFO_SOLID ? fs[o * N + ii] : fs[i * N + s];
+      } else f[i] = fs[i * N + ii - (ex + ey * NX + ez * NXY)];
+    }
+    if (x === 0) {
+      const ut = P.uin * refProf(z, P), cs = 1 / Math.sqrt(3);
+      let s0 = 0, sm = 0;
+      for (let i = 0; i < 19; i++) { if (cx[i] === 0) s0 += f[i]; else if (cx[i] === -1) sm += f[i]; }
+      const bb = 1 - ut + cs, kb = s0 + 2 * sm + ut;
+      const dri = 2 * kb / (bb + Math.sqrt(Math.max(bb * bb + 4 * cs * kb, 1e-6)));
+      const ux = ut - cs * dri, uui = ux * ux;
+      for (let i = 1; i < 19; i++) if (cx[i] === 1) f[i] = refGeq(W[i], dri, ux, uui);
+    }
+    let dr = 0, jx = 0, jy = 0, jz = 0, pxx = 0, pyy = 0, pzz = 0, pxy = 0, pxz = 0, pyz = 0;
+    for (let i = 0; i < 19; i++) {
+      const ex = cx[i], ey = cy[i], ez = cz[i], v = f[i];
+      dr += v; jx += v * ex; jy += v * ey; jz += v * ez;
+      pxx += v * ex * ex; pyy += v * ey * ey; pzz += v * ez * ez;
+      pxy += v * ex * ey; pxz += v * ex * ez; pyz += v * ey * ez;
+    }
+    const rr = Math.min(3, Math.max(0.3, 1 + dr)), drc = rr - 1;
+    // Wandgesetz: Reibung rho·tau_w·Fläche entgegen der wandnahen Strömung (wie im Shader)
+    let djx = 0, djy = 0, djz = 0;
+    if (ww > 0) {
+      const Am = ww * rr * Math.max(inf === 0 ? 1 : 6 * (ax * wnx + ay * wny + az * wnz), 0);
+      djx = -Am * bw[wo]; djy = -Am * bw[wo + 1]; djz = -Am * bw[wo + 2];
+    }
+    let ux = (jx + djx - d3x) / rr, uy = (jy + djy - d3y) / rr, uz = (jz + djz - d3z) / rr;
+    const um = Math.hypot(ux, uy, uz);
+    if (um > 0.35) { const k = 0.35 / um; ux *= k; uy *= k; uz *= k; }
+    const dOut = NX - 1 - x;
+    let dSide = Math.min(Math.min(y, NY - 1 - y), NZ - 1 - z);
+    if (P.floor === 0) dSide = Math.min(dSide, z);
+    const sa = Math.max(0, 1 - dOut / P.spgX), sb = Math.max(0, 1 - dSide / P.spgY);
+    const spg = P.sponge * Math.max(sa * sa, sb * sb);
+    const drs = drc, rs = rr;
+    const uu = ux * ux + uy * uy + uz * uz;
+    let nxx = pxx - rr * ux * ux - drc / 3, nyy = pyy - rr * uy * uy - drc / 3, nzz = pzz - rr * uz * uz - drc / 3;
+    let nxy = pxy - rr * ux * uy, nxz = pxz - rr * ux * uz, nyz = pyz - rr * uy * uz;
+    const t = ii * 7;
+    const nut = Math.min(Math.max(turb[t + 6], 0), P.nutMax);
+    const tau = 0.5 + 3 * (P.nu0 + nut), sg = P.sigma;
+    if (sg < 1) {
+      const kf = (1 - sg) * (2 / 3) * rr * tau;
+      nxx = sg * nxx - kf * turb[t]; nyy = sg * nyy - kf * turb[t + 1]; nzz = sg * nzz - kf * turb[t + 2];
+      nxy = sg * nxy - kf * turb[t + 3]; nxz = sg * nxz - kf * turb[t + 4]; nyz = sg * nyz - kf * turb[t + 5];
+    }
+    const om1 = (1 - 1 / tau) * (1 - spg), tr3 = (nxx + nyy + nzz) / 3;
+    const axxy = rs * ux * ux * uy + om1 * (2 * ux * nxy + uy * nxx), axxz = rs * ux * ux * uz + om1 * (2 * ux * nxz + uz * nxx);
+    const axyy = rs * ux * uy * uy + om1 * (2 * uy * nxy + ux * nyy), axzz = rs * ux * uz * uz + om1 * (2 * uz * nxz + ux * nzz);
+    const ayyz = rs * uy * uy * uz + om1 * (2 * uy * nyz + uz * nyy), ayzz = rs * uy * uz * uz + om1 * (2 * uz * nyz + uy * nzz);
+    for (let i = 0; i < 19; i++) {
+      const ex = cx[i], ey = cy[i], ez = cz[i], h = i * 6;
+      const cpc = ex * ex * nxx + ey * ey * nyy + ez * ez * nzz + 2 * (ex * ey * nxy + ex * ez * nxz + ey * ez * nyz);
+      const t3 = h3[h] * axxy + h3[h + 1] * axxz + h3[h + 2] * axyy + h3[h + 3] * axzz + h3[h + 4] * ayyz + h3[h + 5] * ayzz;
+      fd[i * N + ii] = refGeq(W[i], drs, ex * ux + ey * uy + ez * uz, uu) + om1 * W[i] * 4.5 * (cpc - tr3) + W[i] * 13.5 * t3;
+    }
+    mac[ii * 4] = ux; mac[ii * 4 + 1] = uy; mac[ii * 4 + 2] = uz; mac[ii * 4 + 3] = drs;
+    if (inf !== 0) { bforce[bi * 4] += Fx - djx + d3x; bforce[bi * 4 + 1] += Fy - djy + d3y; bforce[bi * 4 + 2] += Fz - djz + d3z; }
+  }
+}
+
+// Wandpuffer: je Randzelle (Normale, Abstand) und (Geschwindigkeit des Wandmodells, Anteil); danach je Bodenzelle dasselbe
+function makeBW(walls, nx, ny) {
+  const bw = new Float32Array(2 * (walls.nb + nx * ny) * 4);
+  for (let b = 0; b < walls.nb; b++) bw.set(walls.bwall.subarray(b * 4, b * 4 + 4), b * 8);
+  for (let j = 0; j < nx * ny; j++) bw.set([0, 0, 1, 0.5], (walls.nb + j) * 8);
+  return bw;
+}
+
+// Kleine Testgitter: Kugel frei im Strom, Quader auf glattem Boden, Quader auf festem Boden mit Windprofil
+function refCase(kind) {
+  const nx = 26, ny = 14, nz = 12, N = nx * ny * nz;
+  let tri;
+  if (kind === 'frei') {
+    const m = makeExample(EXAMPLES.find(e => e.id === 'kugel'));
+    const P = m.mesh.pos, I = m.mesh.idx, R = 3.7, c = [9.3, 6.6, 5.8];
+    tri = new Float32Array(I.length * 3);
+    for (let i = 0; i < I.length; i++) for (let k = 0; k < 3; k++) tri[i * 3 + k] = P[I[i] * 3 + k] * 2 * R + c[k];
+  } else {
+    const part = partNew();
+    partBox(part, [8.3, 4.6, -0.5], [12.7, 8.2, 3.4], [0.5, 0.5, 0.5]);
+    tri = new Float32Array(part.idx.length * 3);
+    for (let i = 0; i < part.idx.length; i++) for (let k = 0; k < 3; k++) tri[i * 3 + k] = part.pos[part.idx[i] * 3 + k];
+  }
+  const floor = kind === 'frei' ? 0 : kind === 'glatt' ? 2 : 1;
+  const vox = voxelize(tri, nx, ny, nz);
+  const walls = buildWalls(tri, vox.solid, nx, ny, nz);
+  const wd = wallDistance(vox.solid, walls, nx, ny, nz, floor === 1);
+  // 'glatt' mit kleiner Viskosität: dort greift das Wandgesetz an der Sonde (y+ im logarithmischen Bereich)
+  const U = U_LB, nu0 = kind === 'glatt' ? 1e-5 : 2e-3, z0 = floor === 1 ? 0.4 : 0, href = 4;
+  const pnorm = z0 > 0 ? 1 / Math.log((href + z0) / z0) : 0;
+  const P = {
+    nx, ny, nz, uin: U, z0, pnorm, nu0, sigma: 0.97, noise: 0.05, sponge: SPONGE, floor, amb: 1,
+    spgX: spongeW(nx), spgY: spongeW(Math.min(ny, nz)), nutMax: NUT_MAX, cw: C_WALE,
+    kin: 1.5 * (0.01 * U) ** 2, win: 1.5 * (0.01 * U) ** 2 / (5 * nu0), ustar: z0 > 0 ? SST.kap * U * pnorm : 0,
+    wand: kind === 'fest' ? 0 : 1,   // mit und ohne Ausgleich der u²-Anteile prüfen
+    turb: kind === 'frei' ? 0.5 : 1,   // Grenzschicht am Modell halb turbulent (prüft den Anteil)
   };
+  P.nb = walls.nb;
+  return { nx, ny, nz, N, solid: vox.solid, walls, wd, P, kind, bw: makeBW(walls, nx, ny) };
 }
 
 // ---------- 6. Grafikkarte: Simulation und Darstellung ----------
 const U_LB = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('ulb')) ? +new URLSearchParams(location.search).get('ulb') : 0.1; // Windgeschwindigkeit im Gitter (Zellen je Schritt)
 const NU_AIR = 1.5e-5;     // kinematische Viskosität Luft, m²/s
 const RHO_AIR = 1.204;     // Dichte Luft bei 20 °C, kg/m³
-const NU_MIN = 2e-4;       // kleinste Gitterviskosität (Stabilität, Gitter-Reynoldszahl 500)
-const C_SMAG = 0.15;       // Smagorinsky-Konstante
 const SPONGE = 0.08;       // Stärke der Schwammzone am Rand
-const BYTES_PER_CELL = 19 * 4 * 2 + 4 + 16 + 16 + 8 + 1;
+const C_WALE = 0.5;        // Konstante des WALE-Modells
+const NUT_MAX = 0.5;       // größte Wirbelviskosität im Gitter (Relaxationszeit höchstens 2)
+const HRR_SIGMA = 0.98;    // Anteil der Spannungen aus den Verteilungen (Rest aus Geschwindigkeitsdifferenzen)
 const LEVELS = [
-  { name: 'sehr grob', cells: 0.25e6 }, { name: 'grob', cells: 0.5e6 }, { name: 'mittel', cells: 1e6 },
-  { name: 'fein', cells: 2e6 }, { name: 'sehr fein', cells: 4e6 }, { name: 'extrem fein', cells: 8e6 }, { name: 'maximal', cells: 16e6 },
+  { name: 'sehr grob', cells: 0.5e6 }, { name: 'grob', cells: 1e6 }, { name: 'mittel', cells: 2e6 },
+  { name: 'fein', cells: 4e6 }, { name: 'sehr fein', cells: 8e6 }, { name: 'extrem fein', cells: 16e6 }, { name: 'maximal', cells: 24e6 },
 ];
+// Speicher je Zelle: Verteilungen (2 Sätze), info, Geschwindigkeit, Mittelwert, Turbulenz; SST zusätzlich k, ω (2 Sätze), Wandabstand
 const MAX_LINES = 1500;
+const RED_WG = 256;        // höchstens so viele Teilsummen bei den Kräften
 
 const BU = () => GPUBufferUsage, TU = () => GPUTextureUsage;
 
 let SIM_PIPES = null;   // übersetzte Rechen-Shader, für alle Gitter gleich
 let SIM_PASS_MODE = 'one';   // 'one': alle Schritte eines Bilds in einem Durchgang, 'each': je Schritt ein eigener (vom Selbsttest gewählt)
 
+async function simPipelines(dev) {
+  if (SIM_PIPES) return SIM_PIPES;
+  const mk = (code, label) => dev.createComputePipelineAsync({ layout: 'auto', label, compute: { module: dev.createShaderModule({ code, label }), entryPoint: 'main' } });
+  const [step, init, copy, les, sst, initkw, reduce] = await Promise.all([
+    mk(wgslStep(), 'step'), mk(wgslInit(), 'init'), mk(wgslCopy(), 'copy'), mk(wgslTurb(false), 'les'), mk(wgslTurb(true), 'sst'), mk(wgslInitKW(), 'initkw'), mk(WGSL_REDUCE, 'reduce')]);
+  SIM_PIPES = { step, init, copy, les, sst, initkw, reduce };
+  return SIM_PIPES;
+}
+
 class Sim {
   constructor(dev) { this.dev = dev; this.r = null; this.parity = 0; }
 
   destroy() {
     if (!this.r) return;
-    for (const k of ['fA', 'fB', 'info', 'mac', 'avg', 'prm', 'cp', 'seeds', 'lines', 'sp', 'stat', 'statRd']) this.r[k] && this.r[k].destroy();
-    this.r.fieldTex.destroy(); this.r.solidTex.destroy();
+    for (const k of ['fA', 'fB', 'info', 'mac', 'avg', 'turb', 'blist', 'bw', 'bforce', 'part', 'partRd', 'rp', 'kwA', 'kwB', 'wd', 'prm', 'cp', 'seeds', 'lines', 'sp', 'stat', 'statRd'])
+      if (this.r[k]) this.r[k].destroy();
+    if (this.r.fieldTex) this.r.fieldTex.destroy();
+    if (this.r.solidTex) this.r.solidTex.destroy();
     this.r = null;
   }
 
-  async build(dom, info, solid, tracePipe, sampler) {
+  // geo: { info, blist, bw, nb, solid, wd }; sst: stationär mit k-ω SST
+  // bw: je Randzelle 2 vec4 (Normale + Wandabstand, Wandmodell), danach je Bodenzelle 2 vec4
+  async build(dom, geo, sst, tracePipe, sampler) {
     this.destroy();
-    const dev = this.dev, { nx, ny, nz } = dom, N = nx * ny * nz;
-    const S = BU().STORAGE, CD = BU().COPY_DST;
+    const dev = this.dev, { nx, ny, nz } = dom, N = nx * ny * nz, nb = geo.nb;
+    const S = BU().STORAGE, CD = BU().COPY_DST, CS = BU().COPY_SRC;
     dev.pushErrorScope('out-of-memory');
     dev.pushErrorScope('validation');
     const B = (size, usage) => dev.createBuffer({ size: Math.max(16, Math.ceil(size / 16) * 16), usage });
-    const r = {};
-    r.fA = B(19 * N * 4, S | BU().COPY_SRC); r.fB = B(19 * N * 4, S | BU().COPY_SRC);
+    const r = { sst, nb };
+    r.fA = B(19 * N * 4, S | CS); r.fB = B(19 * N * 4, S | CS);
     r.info = B(N * 4, S | CD);
-    r.mac = B(N * 16, S | BU().COPY_SRC);
+    r.mac = B(N * 16, S | CS);
     r.avg = B(N * 16, S);
-    r.prm = B(96, BU().UNIFORM | CD);
+    r.turb = B(N * 16, S | CS);
+    r.blist = B(Math.max(1, nb) * B_STRIDE * 4, S | CD);
+    r.bw = B((nb + nx * ny) * 32, S | CD | CS);
+    r.bforce = B(Math.max(1, nb) * 16, S | CD | CS);
+    r.part = B(RED_WG * 16, S | CS);
+    r.partRd = B(RED_WG * 16, BU().COPY_DST | BU().MAP_READ);
+    r.rp = B(16, BU().UNIFORM | CD);
+    r.wd = B(N * 4, S | CD);
+    if (sst) { r.kwA = B(N * 8, S | CS); r.kwB = B(N * 8, S | CS); }
+    r.prm = B(112, BU().UNIFORM | CD);
     r.cp = B(32, BU().UNIFORM | CD);
     r.sp = B(48, BU().UNIFORM | CD);
-    r.stat = B(16, S | CD | BU().COPY_SRC);
+    r.stat = B(16, S | CD | CS);
     r.statRd = B(16, BU().COPY_DST | BU().MAP_READ);
     r.M = clamp(Math.round(2.2 * nx / 0.75), 256, 1536);
     r.seeds = B(MAX_LINES * 16, S | CD);
     r.lines = B(MAX_LINES * r.M * 32, S);
     r.fieldTex = dev.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'rgba16float', usage: TU().STORAGE_BINDING | TU().TEXTURE_BINDING | TU().COPY_SRC });
     r.solidTex = dev.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'r8unorm', usage: TU().TEXTURE_BINDING | TU().COPY_DST });
-    dev.queue.writeBuffer(r.info, 0, info);
+    dev.queue.writeBuffer(r.info, 0, geo.info);
+    if (nb) dev.queue.writeBuffer(r.blist, 0, geo.blist);
+    dev.queue.writeBuffer(r.bw, 0, geo.bw);
+    dev.queue.writeBuffer(r.wd, 0, geo.wd);
     const s255 = new Uint8Array(N);
-    for (let i = 0; i < N; i++) s255[i] = solid[i] ? 255 : 0;
+    for (let i = 0; i < N; i++) s255[i] = geo.solid[i] ? 255 : 0;
     dev.queue.writeTexture({ texture: r.solidTex }, s255, { bytesPerRow: nx, rowsPerImage: ny }, [nx, ny, nz]);
+    const G = Math.max(1, Math.min(RED_WG, Math.ceil(nb / 256))), chunk = Math.max(1, Math.ceil(nb / G));
+    r.redG = G;
+    dev.queue.writeBuffer(r.rp, 0, new Uint32Array([nb, chunk, 0, 0]));
     const eV = await dev.popErrorScope(), eM = await dev.popErrorScope();
     if (eM || eV) {
       this.r = r; this.destroy();
       const err = new Error((eM || eV).message); err.oom = !!eM; throw err;
     }
-    // Shader nur einmal übersetzen (Gittermaße stehen im Uniform-Puffer)
-    if (!SIM_PIPES) {
-      const mk = (code, label) => dev.createComputePipelineAsync({ layout: 'auto', label, compute: { module: dev.createShaderModule({ code, label }), entryPoint: 'main' } });
-      try {
-        SIM_PIPES = await Promise.all([mk(wgslStep(), 'step'), mk(wgslInit(), 'init'), mk(wgslCopy(), 'copy')]);
-      } catch (e) { this.r = r; this.destroy(); throw e; }
-    }
-    [r.pStep, r.pInit, r.pCopy] = SIM_PIPES;
+    let P;
+    try { P = await simPipelines(dev); } catch (e) { this.r = r; this.destroy(); throw e; }
+    r.P = P;
     const bg = (p, ent) => dev.createBindGroup({ layout: p.getBindGroupLayout(0), entries: ent.map((x, i) => ({ binding: i, resource: x.createView ? x.createView() : (x.buffer ? x : { buffer: x }) })) });
-    r.bgStep = [bg(r.pStep, [r.prm, r.fA, r.fB, r.info, r.mac]), bg(r.pStep, [r.prm, r.fB, r.fA, r.info, r.mac])];
-    r.bgInit = bg(r.pInit, [r.prm, r.fA, r.info, r.mac, r.fB]);
-    r.bgCopy = dev.createBindGroup({ layout: r.pCopy.getBindGroupLayout(0), entries: [
+    r.bgStep = [bg(P.step, [r.prm, r.fA, r.fB, r.info, r.blist, r.turb, r.mac, r.bforce, r.bw]), bg(P.step, [r.prm, r.fB, r.fA, r.info, r.blist, r.turb, r.mac, r.bforce, r.bw])];
+    if (sst) r.bgTurb = [bg(P.sst, [r.prm, r.mac, r.info, r.blist, r.bw, r.turb, r.wd, r.kwA, r.kwB]), bg(P.sst, [r.prm, r.mac, r.info, r.blist, r.bw, r.turb, r.wd, r.kwB, r.kwA])];
+    else { const b = bg(P.les, [r.prm, r.mac, r.info, r.blist, r.bw, r.turb, r.wd]); r.bgTurb = [b, b]; }
+    r.pTurb = sst ? P.sst : P.les;
+    r.bgInit = bg(P.init, [r.prm, r.fA, r.fB, r.info, r.mac, r.turb]);
+    if (sst) r.bgInitKW = bg(P.initkw, [r.prm, r.kwA, r.kwB]);
+    r.bgReduce = bg(P.reduce, [r.rp, r.bforce, r.part]);
+    r.bgCopy = dev.createBindGroup({ layout: P.copy.getBindGroupLayout(0), entries: [
       { binding: 0, resource: { buffer: r.cp } }, { binding: 1, resource: { buffer: r.mac } }, { binding: 2, resource: { buffer: r.info } },
       { binding: 3, resource: { buffer: r.avg } }, { binding: 4, resource: r.fieldTex.createView() }, { binding: 5, resource: { buffer: r.stat } }] });
     r.bgTrace = dev.createBindGroup({ layout: tracePipe.getBindGroupLayout(0), entries: [
@@ -1721,39 +2851,66 @@ class Sim {
     this.tracePipe = tracePipe;
   }
 
+  // p: { nu0, sigma, noise, sponge, floor, z0, pnorm, amb, nutMax, cw, kin, win, ustar, reib, ml, wand, mlD0, mlD1, turb (Anteil turbulente Grenzschicht am Modell) }
   setParams(p) {
-    const r = this.r, d = new ArrayBuffer(96), f = new Float32Array(d), u = new Uint32Array(d);
-    f.set([U_LB, 0, 0, 0], 0);
-    f.set([0, 0, 0, p.delta || 0], 4);
-    const cs = p.cs != null ? p.cs : C_SMAG;
-    f.set([p.tau0, 18 * Math.SQRT2 * cs * cs, p.noise != null ? p.noise : 0.02, p.sponge != null ? p.sponge : SPONGE], 8);
-    u.set([p.floor || 0, 0, 0, 0], 12);
-    u.set([r.nx, r.ny, r.nz, r.N], 16);
-    f.set([spongeW(r.nx), spongeW(Math.min(r.ny, r.nz)), 0, 0], 20);
+    const r = this.r, d = new ArrayBuffer(112), f = new Float32Array(d), u = new Uint32Array(d);
+    f.set([U_LB, p.z0 || 0, p.pnorm || 0, p.reib != null ? p.reib : 1], 0);
+    f.set([p.nu0, p.sigma != null ? p.sigma : HRR_SIGMA, p.noise != null ? p.noise : 0.02, p.sponge != null ? p.sponge : SPONGE], 4);
+    u.set([p.floor || 0, r.nb, p.amb ? 1 : 0, p.wand === 0 ? 0 : 1], 8);
+    u.set([r.nx, r.ny, r.nz, r.N], 12);
+    f.set([spongeW(r.nx), spongeW(Math.min(r.ny, r.nz)), p.nutMax != null ? p.nutMax : NUT_MAX, p.cw != null ? p.cw : C_WALE], 16);
+    f.set([p.kin || 0, p.win || 0, p.ustar || 0, p.ml != null ? p.ml : 1], 20);
+    f.set([p.mlD0 != null ? p.mlD0 : ML_D[0], p.mlD1 != null ? p.mlD1 : ML_D[1], p.turb != null ? p.turb : 1, 0], 24);
     this.dev.queue.writeBuffer(r.prm, 0, d);
   }
 
   init(enc) {
-    const r = this.r, p = enc.beginComputePass();
-    p.setPipeline(r.pInit); p.setBindGroup(0, r.bgInit);
-    p.dispatchWorkgroups(Math.ceil(r.nx / 64), r.ny, r.nz); p.end();
+    const r = this.r;
+    enc.clearBuffer(r.bforce);
+    const p = enc.beginComputePass();
+    p.setPipeline(r.P.init); p.setBindGroup(0, r.bgInit);
+    p.dispatchWorkgroups(Math.ceil(r.nx / 64), r.ny, r.nz);
+    if (r.sst) { p.setPipeline(r.P.initkw); p.setBindGroup(0, r.bgInitKW); p.dispatchWorkgroups(Math.ceil(r.nx / 64), r.ny, r.nz); }
+    p.end();
     this.parity = 0;
   }
 
   steps(enc, k) {
     const r = this.r, gx = Math.ceil(r.nx / 64);
-    if ((this.passMode || SIM_PASS_MODE) === 'each') {
-      for (let i = 0; i < k; i++) {
-        const p = enc.beginComputePass();
-        p.setPipeline(r.pStep); p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz); p.end();
-        this.parity ^= 1;
-      }
-      return;
+    const one = (this.passMode || SIM_PASS_MODE) !== 'each';
+    let p = one ? enc.beginComputePass() : null;
+    for (let i = 0; i < k; i++) {
+      if (!one) p = enc.beginComputePass();
+      p.setPipeline(r.pTurb); p.setBindGroup(0, r.bgTurb[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz);
+      p.setPipeline(r.P.step); p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz);
+      this.parity ^= 1;
+      if (!one) p.end();
     }
+    if (one) p.end();
+  }
+
+  // Kräfte seit dem letzten Aufruf aufsummieren (Teilsummen) und für das Auslesen bereitlegen
+  reduceForces(enc) {
+    const r = this.r;
+    if (!r || !r.nb || r.forceBusy) return false;
     const p = enc.beginComputePass();
-    p.setPipeline(r.pStep);
-    for (let i = 0; i < k; i++) { p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz); this.parity ^= 1; }
-    p.end();
+    p.setPipeline(r.P.reduce); p.setBindGroup(0, r.bgReduce); p.dispatchWorkgroups(r.redG); p.end();
+    enc.copyBufferToBuffer(r.part, 0, r.partRd, 0, r.redG * 16);
+    r.forceBusy = true;
+    return true;
+  }
+
+  async readForces() {
+    const r = this.r;
+    if (!r || !r.forceBusy) return null;
+    try {
+      await r.partRd.mapAsync(GPUMapMode.READ);
+      const a = new Float32Array(r.partRd.getMappedRange().slice(0, r.redG * 16));
+      r.partRd.unmap();
+      const F = [0, 0, 0];
+      for (let i = 0; i < r.redG; i++) { F[0] += a[i * 4]; F[1] += a[i * 4 + 1]; F[2] += a[i * 4 + 2]; }
+      return F;
+    } catch (e) { return null; } finally { if (this.r === r) r.forceBusy = false; }
   }
 
   copy(enc, mode, alpha) {
@@ -1762,7 +2919,7 @@ class Sim {
     new Float32Array(d)[0] = alpha; u[1] = mode; u[2] = Math.min(3, r.nx - 1); u.set([r.nx, r.ny, r.nz, 0], 4);
     this.dev.queue.writeBuffer(r.cp, 0, d);
     const p = enc.beginComputePass();
-    p.setPipeline(r.pCopy); p.setBindGroup(0, r.bgCopy);
+    p.setPipeline(r.P.copy); p.setBindGroup(0, r.bgCopy);
     p.dispatchWorkgroups(Math.ceil(r.nx / 8), Math.ceil(r.ny / 8), r.nz); p.end();
   }
 
@@ -1797,7 +2954,7 @@ class Sim {
       const buf = r.statRd.getMappedRange().slice(0, 16);
       r.statRd.unmap();
       const f = new Float32Array(buf), i = new Int32Array(buf), u = new Uint32Array(buf);
-      return { umax: f[0], pRef: u[2] > 0 ? i[1] / u[2] / 1e4 : null };
+      return { umax: f[0], pRef: u[2] > 0 ? i[1] / u[2] / PREF_SCALE : null };
     } catch (e) { return null; } finally { r.statBusy = false; }
   }
 
@@ -1819,12 +2976,28 @@ class Sim {
     const n = count || this.r.N;
     return new Float32Array(await this.readBuffer(this.r.mac, first * 16, n * 16));
   }
-
   // aktuelle Verteilungen (der Puffer, aus dem der nächste Schritt liest)
   async readF() {
     const r = this.r;
     return new Float32Array(await this.readBuffer(this.parity ? r.fB : r.fA, 0, 19 * r.N * 4));
   }
+  // Turbulenzpuffer: je Zelle 6 Dehnraten (16 Bit) und Wirbelviskosität
+  async readTurb() {
+    const r = this.r, raw = new Uint32Array(await this.readBuffer(r.turb, 0, r.N * 16)), out = new Float64Array(r.N * 7);
+    const h = new Uint16Array(raw.buffer), f = new Float32Array(raw.buffer);
+    for (let i = 0; i < r.N; i++) {
+      for (let k = 0; k < 6; k++) out[i * 7 + k] = half2float(h[i * 8 + k]);
+      out[i * 7 + 6] = f[i * 4 + 3];
+    }
+    return out;
+  }
+  // k und ω (der Satz, aus dem der nächste Schritt liest)
+  async readKW() {
+    const r = this.r;
+    return r.sst ? new Float32Array(await this.readBuffer(this.parity ? r.kwB : r.kwA, 0, r.N * 8)) : null;
+  }
+  async readBForce() { return new Float32Array(await this.readBuffer(this.r.bforce, 0, Math.max(1, this.r.nb) * 16)); }
+  async readBW() { return new Float32Array(await this.readBuffer(this.r.bw, 0, (this.r.nb + this.r.nx * this.r.ny) * 32)); }
 
   // 3D-Textur des Felds zurücklesen (rgba16float)
   async readTex() {
@@ -2098,7 +3271,6 @@ function attachCameraInput(el, cam, onChange) {
 const $ = (s) => document.querySelector(s);
 const QS = new URLSearchParams(location.search);
 const TEST = QS.has('test');
-if (QS.has('stoss')) COLLISION = QS.get('stoss');
 
 const ICONS = {
   car: '<path d="M3.5 16.6h2.3a2.9 2.9 0 0 1 5.6 0h14.2a2.9 2.9 0 0 1 5.6 0h2.3v-3.4c0-1.2-.8-2-2-2.3l-5.4-1.2-4.5-3.4a4.6 4.6 0 0 0-2.8-1h-7.1c-1.2 0-2.2.5-3 1.4L7.4 10H5.6c-1.2 0-2.1.9-2.1 2.1z"/><circle cx="8.6" cy="16.9" r="2.4"/><circle cx="28.4" cy="16.9" r="2.4"/>',
@@ -2113,17 +3285,26 @@ const App = {
   dev: null, renderer: null, sim: null, cam: new OrbitCam(),
   model: null, upload: null, dom: null, preview: null,
   wind: { yaw: 0, pitch: 0, speed: 30 },
+  mode: QS.get('modus') === 'stationaer' ? 'sst' : 'les',
   level: 3, rec: 3, levelOk: LEVELS.map(() => true), customCells: null,
+  force: { acc: 0, busy: false, samples: [], lastT: 0 },
   running: false, started: false, hasField: false, fieldDirty: false, building: false, buildToken: 0,
-  steps: 0, spf: 2, frameMs: 16, gpuMs: 8, gpuPending: false, gpuFresh: false, damp: 1, lastHealth: 0, avgReset: true,
+  steps: 0, spf: 2, frameMs: 16, gpuMs: 8, gpuPending: false, gpuFresh: false, damp: 0, lastHealth: 0, avgReset: true,
   rate: { t: 0, steps: 0, value: 0 },
   view: { color: 'vel', lines: true, nLinesV: 50, seed: 'flaeche', row: 0.5, surface: true, slice: 'aus', slicePos: 0.5, avg: false, anim: !matchMedia('(prefers-reduced-motion: reduce)').matches },
   mlups: 0, benchBad: null, ctx: null, offscreen: null, lastHud: 0, pRef: 0, pRefN: 0, runId: 0, restarts: 0,
 };
 
 const VEL_RANGE = 1.8;
-const FLOW_TIME = 25;     // Sekunden, in denen die Strömung bei der empfohlenen Stufe eingelaufen sein soll
+const FLOW_TIME = 40;     // Sekunden für einen Durchlauf der Luft durch den Kanal bei der empfohlenen Stufe
 const MAX_SPF = 200;      // höchstens so viele Rechenschritte je Bild
+const Z0_GROUND = 0.05;   // Rauigkeitslänge des Bodens bei Gebäuden, m (offenes Gelände)
+const TU_INFLOW = 0.005;  // Turbulenzgrad der Anströmung (stationär)
+const SETTLE_PASSES = 2;  // so viele Durchläufe, bis die Strömung als eingelaufen gilt
+// Abstände des Modells zu den Kanalrändern (Vielfache der Modellgröße s)
+const MARGINS = { up: 1.5, down: 3.5, side: 1.5 };
+// Dämpfung nach Instabilität: Anteil sigma der Stoßregel und kleinste Viskosität
+const DAMP_LEVELS = [{ sigma: HRR_SIGMA, nuMin: 0 }, { sigma: 0.95, nuMin: 2e-5 }, { sigma: 0.9, nuMin: 1e-4 }, { sigma: 0.8, nuMin: 5e-4 }];
 const nLinesOf = (v) => Math.round(10 * Math.pow(150, v / 100));
 
 // ---------- Rechengebiet ----------
@@ -2146,7 +3327,8 @@ function makeDomain(model, wind, cells) {
   }
   const E = [0, 1, 2].map(k => hi[k] - lo[k]), maxE = Math.max(...E);
   const s = clamp(Math.cbrt(Math.max(E[0] * E[1] * E[2], 1e-12)), 0.3 * maxE, maxE);
-  const up = 1.2 * s, down = 3.0 * s, side = 1.0 * s, top = 1.0 * s, bottom = ground ? 0 : 1.0 * s;
+  const M = App.margins || MARGINS;
+  const up = M.up * s, down = M.down * s, side = M.side * s, top = M.side * s, bottom = ground ? 0 : M.side * s;
   const Lx = E[0] + up + down, Ly = E[1] + 2 * side, Lz = E[2] + top + bottom;
   const dx = Math.cbrt(Lx * Ly * Lz / cells);
   const nx = Math.max(24, Math.round(Lx / dx)), ny = Math.max(12, Math.round(Ly / dx)), nz = Math.max(12, Math.round(Lz / dx));
@@ -2156,10 +3338,10 @@ function makeDomain(model, wind, cells) {
   const w2l = new Float32Array([ex[0] / dx, ey[0] / dx, ez[0] / dx, 0, ex[1] / dx, ey[1] / dx, ez[1] / dx, 0, ex[2] / dx, ey[2] / dx, ez[2] / dx, 0,
     -v3.dot(O, ex) / dx, -v3.dot(O, ey) / dx, -v3.dot(O, ez) / dx, 1]);
   const mlo = [0, 1, 2].map(k => (lo[k] - q0[k]) / dx), mhi = [0, 1, 2].map(k => (hi[k] - q0[k]) / dx);
-  // Boden: glatt (Fahrzeuge) oder fest mit Windprofil (Gebäude)
+  // Boden: glatt (Fahrzeuge) oder rau mit logarithmischem Windprofil (Gebäude, Bezugshöhe = Gebäudehöhe)
   const floor = !ground ? 0 : model.meta.ground === 'slip' ? 2 : 1;
-  const delta = floor === 1 ? clamp(2.5 * (mhi[2] + 0.5), 4, nz) : 0;
-  return { nx, ny, nz, N: nx * ny * nz, dx, ex, ey, ez, O, l2w, w2l, mlo, mhi, ground, floor, delta };
+  const z0 = floor === 1 ? Z0_GROUND / dx : 0, href = floor === 1 ? Math.max(mhi[2] + 0.5, 2) : 0;
+  return { nx, ny, nz, N: nx * ny * nz, dx, ex, ey, ez, O, l2w, w2l, mlo, mhi, ground, floor, z0, href };
 }
 
 function meshToLattice(mesh, w2l) {
@@ -2173,11 +3355,34 @@ function meshToLattice(mesh, w2l) {
   return t;
 }
 
+// Werte für die Rechenkerne (alles in Gittereinheiten: Länge Zelle, Zeit Schritt)
+// Grenzschicht am Modell: laminar bei kleiner Reynoldszahl (bezogen auf die Bezugslänge des Modells), turbulent bei
+// großer, dazwischen gleitend. Grob: der Ort des Umschlags wird nicht berechnet. Grenzen wie beim Widerstandseinbruch
+// der Kugel (etwa 2·10⁵ bis 5·10⁵).
+const RE_TRANS = [2e5, 5e5];
+function turbFraction(Re) {
+  const t = Math.log(Math.max(Re, 1) / RE_TRANS[0]) / Math.log(RE_TRANS[1] / RE_TRANS[0]);
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+}
+
 function physParams() {
   const d = App.dom, U = App.wind.speed;
+  const turb = App.model ? turbFraction(U * App.model.meta.ref / NU_AIR) : 1;
   const nuPhys = NU_AIR * U_LB / (U * d.dx);
-  const nu = Math.max(nuPhys, (QS.has('nu') ? +QS.get('nu') : NU_MIN) * App.damp);
-  return { tau0: 0.5 + 3 * nu, floor: d.floor, delta: d.delta, nuPhys, nu, cs: QS.has('cs') ? +QS.get('cs') : null, sponge: QS.has('sponge') ? +QS.get('sponge') : null, noise: QS.has('noise') ? +QS.get('noise') : null };
+  const lv = DAMP_LEVELS[Math.min(App.damp, DAMP_LEVELS.length - 1)];
+  const nu0 = Math.max(nuPhys, lv.nuMin, App.nuOverride || 0);
+  const kin = 1.5 * (TU_INFLOW * U_LB) ** 2;
+  const pnorm = d.z0 > 0 ? 1 / Math.log((d.href + d.z0) / d.z0) : 0;
+  return Object.assign({
+    nu0, nuPhys, floor: d.floor, z0: d.z0, pnorm, amb: 1,
+    sigma: QS.has('sigma') ? +QS.get('sigma') : lv.sigma, cw: QS.has('cw') ? +QS.get('cw') : C_WALE, nutMax: NUT_MAX,
+    kin, win: kin / (5 * nu0), ustar: d.z0 > 0 ? SST.kap * U_LB * pnorm : 0,
+    sponge: QS.has('sponge') ? +QS.get('sponge') : null, noise: QS.has('noise') ? +QS.get('noise') : null,
+    reib: App.reib != null ? App.reib : (QS.has('reibung') ? +QS.get('reibung') : 1),
+    ml: App.ml != null ? App.ml : (QS.has('ml') ? +QS.get('ml') : 1), turb,
+    wand: QS.has('wand') ? +QS.get('wand') : 1,
+  }, App.over || {});   // App.over: Werte für Prüfläufe (über die Prüfschnittstelle)
 }
 
 // ---------- Neuaufbau bei Modell-, Wind- oder Genauigkeitswechsel ----------
@@ -2192,25 +3397,62 @@ function rebuild() {
   return App.buildChain;
 }
 
+function fillContactWedge(vox, nx, ny) {
+  const NXY = nx * ny, s = vox.solid, mark = new Uint8Array(NXY);
+  for (let it = 0; it < 4; it++) {
+    let n = 0;
+    for (let y = 1; y < ny - 1; y++) for (let x = 1; x < nx - 1; x++) {
+      const j = x + nx * y;
+      if (s[j] || !s[j + NXY]) continue;
+      if (s[j - 1] || s[j + 1] || s[j - nx] || s[j + nx] || s[j - nx - 1] || s[j - nx + 1] || s[j + nx - 1] || s[j + nx + 1]) { mark[j] = 1; n++; }
+    }
+    if (!n) break;
+    for (let j = 0; j < NXY; j++) if (mark[j]) { s[j] = 1; mark[j] = 0; vox.count++; }
+  }
+}
+
 async function doRebuild(token) {
+  const pause = () => new Promise(r => setTimeout(r, 15));
   await new Promise(r => setTimeout(r, 30));
   if (token !== App.buildToken) return;
   try {
     const dom = makeDomain(App.model, App.wind, cellsTarget());
-    const tri = meshToLattice(App.model.mesh, dom.w2l);
+    const sst = App.mode === 'sst';
+    let tri = meshToLattice(App.model.mesh, dom.w2l);
     const vox = voxelize(tri, dom.nx, dom.ny, dom.nz);
-    if (QS.has('leer')) { vox.solid.fill(0); vox.count = 0; }
-    const info = buildInfo(vox.solid, dom.nx, dom.ny, dom.nz);
+    if (QS.has('leer')) { vox.solid.fill(0); vox.count = 0; tri = new Float32Array(0); }
+    // Keil zwischen Boden und Modell dort, wo das Modell den Boden berührt (Reifen): Die Zellen der untersten Lage, über
+    // denen schon Modell ist, wurden dort instabil. Sie werden dem Modell zugeschlagen, ausgehend von den Berührstellen
+    // (bis 4 Zellen weit); ein flacher Spalt unter dem Modell ohne Berührung bleibt offen.
+    if (dom.ground && !(App.over && App.over.spalt === 0)) fillContactWedge(vox, dom.nx, dom.ny);
+    showBusy('Wand wird genau erfasst …'); await pause();
     if (token !== App.buildToken) return;
+    const walls = buildWalls(tri, vox.solid, dom.nx, dom.ny, dom.nz, { thin: !(App.over && App.over.duenn === 0) && QS.get('duenn') !== '0' });
+    showBusy('Wandabstände werden berechnet …'); await pause(); if (token !== App.buildToken) return;
+    const wd = wallDistance(vox.solid, walls, dom.nx, dom.ny, dom.nz, dom.floor === 1);
+    // Bezugsfläche: Flügelfläche aus den Modelldaten, sonst die Stirnfläche (Projektion in Windrichtung)
+    const meta = App.model.meta;
+    if (meta.refArea === 'grundriss') {
+      // Grundriss (Projektion senkrecht nach unten), unabhängig von Anstellwinkel und Gitter
+      const P = App.model.mesh.pos, I = App.model.mesh.idx, tw = new Float32Array(I.length * 3);
+      for (let i = 0; i < I.length; i++) for (let k = 0; k < 3; k++) tw[i * 3 + k] = P[I[i] * 3 + k];
+      const b = App.model.bounds, ext = Math.max(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1]);
+      dom.aref = projectedArea(tw, 2, 1000 / ext) / (dom.dx * dom.dx); dom.arefName = meta.refAreaName || 'Grundfläche';
+    }
+    else if (meta.refArea) { dom.aref = meta.refArea / (dom.dx * dom.dx); dom.arefName = meta.refAreaName || 'Bezugsfläche'; }
+    else { dom.aref = projectedArea(tri, 0); dom.arefName = 'Stirnfläche'; }
+    if (token !== App.buildToken) return;
+    showBusy('Gitter wird angelegt …'); await pause();
     App.renderer.setSim(null);
-    await App.sim.build(dom, info, vox.solid, App.renderer.tracePipe, App.renderer.sampler);
+    await App.sim.build(dom, { info: walls.info, blist: walls.blist, bw: makeBW(walls, dom.nx, dom.ny), nb: walls.nb, solid: vox.solid, wd }, sst, App.renderer.tracePipe, App.renderer.sampler);
     if (token !== App.buildToken) return;
-    dom.solidCount = vox.count; dom.openMesh = vox.openMesh;
+    dom.solidCount = vox.count; dom.openMesh = vox.openMesh; dom.sst = sst;
+    dom.walls = { nb: walls.nb, links: walls.links, misses: walls.misses, V: walls.V };
     App.dom = dom; App.preview = null;
     App.renderer.setSim(App.sim);
     App.sim.setParams(physParams());
     updateSeeds();
-    App.steps = 0; App.avgReset = true; App.restarts = 0;
+    App.steps = 0; App.avgReset = true; App.restarts = 0; resetForces();
     hideBusy();
     App.building = false;
     if (vox.count === 0) toast('Das Modell ist kleiner als eine Zelle. Bitte größer machen oder die Genauigkeit erhöhen.');
@@ -2269,6 +3511,7 @@ function updateSeeds() {
 // ---------- Start / Pause ----------
 function startRun() {
   if (!App.dom || App.building) return;
+  if (!App.started) resetForces();
   App.running = true;
   App.rate = { t: performance.now(), steps: App.steps, value: App.rate.value };
   $('#startHint').classList.add('gone');
@@ -2277,7 +3520,7 @@ function startRun() {
 function pauseRun() { App.running = false; updateRunButton(); }
 function resetFlow() {
   if (!App.dom) return;
-  App.started = false; App.steps = 0; App.hasField = false; App.avgReset = true; App.restarts = 0;
+  App.started = false; App.steps = 0; App.hasField = false; App.avgReset = true; App.restarts = 0; resetForces();
   if (!App.running) startRun();
   updateHud(true);
 }
@@ -2289,7 +3532,7 @@ function updateRunButton() {
 
 // ---------- Modelle ----------
 function selectExample(id) {
-  const ex = EXAMPLES.find(e => e.id === id) || EXAMPLES[0];
+  const ex = EXAMPLES.find(e => e.id === id) || TEST_MODELS.find(e => e.id === id) || EXAMPLES[0];
   App.upload = null;
   App.model = makeExample(ex);
   App.wind.speed = ex.speed;
@@ -2307,7 +3550,7 @@ function modelChanged() {
   App.cam.setHome(c, 1.55 * diag / Math.tan(App.cam.fov / 2) / 2 * 1.25);
   App.cam.windAz = App.wind.yaw * DEG;
   App.cam.target = c.slice(); App.cam.dist = App.cam.home.dist; App.cam.az = App.cam.windAz + 35 * DEG; App.cam.el = 18 * DEG; App.cam.anim = null;
-  App.damp = 1;
+  App.damp = 0;
   App.cam.minEl = m.meta.ground ? 0.5 * DEG : -1.48;
   updateModelUI(); updateWindUI(); updateLegend();
   rebuild();
@@ -2415,11 +3658,21 @@ function updateLevelUI() {
   if (d && App.model) {
     const len = (d.mhi[0] - d.mlo[0]);
     t += `, je Zelle ${fmtLen(d.dx)}. Das Modell ist in Windrichtung etwa ${fmt(len)} Zellen lang.`;
+    if (App.mlups > 0) {
+      const sec = passSeconds(d.nx, d.N);
+      t += ` Ein Durchlauf der Luft durch den Kanal dauert hier etwa ${sec < 90 ? fmt(sec) + ' s' : fmt(sec / 60, 1) + ' min'}.`;
+    }
   }
   $('#levelTxt').textContent = t;
   $('#recTxt').textContent = App.mlups > 0
     ? `Empfehlung für diese Grafikkarte: Stufe ${App.rec + 1} (grüner Punkt). Sie rechnet etwa ${fmtBig(App.mlups * 1e6)} Zellen je Sekunde.`
     : '';
+}
+
+// Rechenzeit für einen Durchlauf der Luft durch den Kanal (Sekunden), aus der gemessenen Leistung
+function passSeconds(nx, N) {
+  const rate = App.mlups * 1e6 * (App.mode === 'sst' ? 0.8 : 1);
+  return rate > 0 ? (nx / U_LB) * N / rate : Infinity;
 }
 
 function updateLegend() {
@@ -2456,7 +3709,7 @@ function updateHud(force) {
   if (App.building) st = 'Gitter wird erstellt';
   else if (d && App.started) {
     const passes = App.steps * U_LB / d.nx;
-    const pct = Math.min(100, Math.round(passes / 2 * 100));
+    const pct = Math.min(100, Math.round(passes / SETTLE_PASSES * 100));
     st = (App.running ? (pct < 100 ? `läuft, eingelaufen zu ${pct} %` : 'läuft, eingelaufen') : 'angehalten');
   } else if (App.running) st = 'startet';
   $('#hudState').textContent = st;
@@ -2467,10 +3720,13 @@ function updateHud(force) {
     const Re = App.wind.speed * App.model.meta.ref / NU_AIR;
     let t = fmtBig(Re);
     if (d) {
-      const p = physParams(), ReSim = U_LB * (App.model.meta.ref / d.dx) / p.nu;
-      if (ReSim < Re * 0.9) t += ` (im Gitter ${fmtBig(ReSim)})`;
+      const p = physParams(), ReSim = U_LB * (App.model.meta.ref / d.dx) / p.nu0;
+      if (ReSim < Re * 0.9) t += ` (gedämpft ${fmtBig(ReSim)})`;
     }
+    const tf = turbFraction(Re);
+    t += tf <= 0 ? ', laminar' : tf >= 1 ? ', turbulent' : ', Umschlag';
     $('#hudRe').textContent = t;
+    $('#hudRe').title = 'Grenzschicht am Modell: ' + (tf <= 0 ? 'laminar (löst an Rundungen früh ab)' : tf >= 1 ? 'turbulent (liegt an Rundungen länger an)' : 'im Umschlag von laminar zu turbulent');
   }
 }
 
@@ -2619,6 +3875,111 @@ function placeWindLabel(sc) {
   el.style.transform = `translate(${lx}px, ${ly}px) translate(-50%, -150%)`;
 }
 
+// ---------- Kräfte und Kennzahlen ----------
+// Die Grafikkarte summiert je Randzelle die übertragenen Impulse; etwa zweimal je Sekunde werden die
+// Summen zusammengefasst und ausgelesen. Ein Messwert = mittlere Kraft je Schritt über diesen Abschnitt.
+// fresh: neuer Lauf (Einlaufen über SETTLE_PASSES Durchläufe), sonst geänderte Werte während des Laufs (1 Durchlauf)
+function resetForces(fresh = true) {
+  const f = App.force;
+  f.acc = 0; f.samples = []; f.gen = (f.gen || 0) + 1;
+  f.since = fresh || !App.dom ? 0 : App.steps * U_LB / App.dom.nx;
+  f.settle = fresh ? SETTLE_PASSES : 1;
+  updateForceHud();
+}
+
+function forceCoeffs(F) {
+  const d = App.dom, V = d.walls.V, pr = App.pRef || 0, qA = 0.5 * U_LB * U_LB * d.aref;
+  return [(F[0] - pr * V[0]) / qA, (F[1] - pr * V[1]) / qA, (F[2] - pr * V[2]) / qA];
+}
+
+// Mittelwert der Messwerte, deren Ende im Bereich (a, b] liegt (in Durchläufen)
+function forceMean(a, b) {
+  let n = 0;
+  const F = [0, 0, 0];
+  for (const s of App.force.samples) if (s.p1 > a && s.p1 <= b) { n += s.n; for (let k = 0; k < 3; k++) F[k] += s.F[k] * s.n; }
+  return n ? { n, F: F.map(v => v / n) } : null;
+}
+
+function onForces(F, meta) {
+  const f = App.force;
+  if (!F || meta.gen !== f.gen || !App.dom || !meta.n) return;
+  f.samples.push({ p1: meta.p1, n: meta.n, F: F.map(v => v / meta.n) });
+  if (f.samples.length > 4000) f.samples.splice(0, f.samples.length - 4000);
+  updateForceHud();
+}
+
+// Stand der Kennzahlen: Mittelwert, Hinweis zur Mittelung bzw. Konvergenz
+function forceState() {
+  const d = App.dom, f = App.force, smp = f.samples;
+  if (!d || !d.walls || !d.walls.nb || !d.aref || !smp.length) return null;
+  const last = smp[smp.length - 1], p = last.p1, t0 = f.since + f.settle;
+  let mean, note, change = null;
+  if (d.sst) {
+    const W = 0.5, m1 = forceMean(p - W, p), m0 = forceMean(p - 2 * W, p - W);
+    mean = m1;
+    if (m0 && p >= t0) {
+      const c1 = forceCoeffs(m1.F), c0 = forceCoeffs(m0.F);
+      change = Math.max(Math.abs(c1[0] - c0[0]) / Math.max(Math.abs(c1[0]), 0.05), Math.abs(c1[2] - c0[2]) / Math.max(Math.abs(c1[2]), 0.05));
+      note = change < 0.005 ? 'konvergiert (Änderung unter 0,5 %)' : `Änderung ${fmt(change * 100, change < 0.1 ? 1 : 0)} % je halbem Durchlauf`;
+    } else note = 'läuft ein';
+  } else if (p < t0) {
+    mean = forceMean(p - 0.25, p);
+    note = 'läuft ein, Werte schwanken noch';
+  } else {
+    mean = forceMean(t0, Infinity);
+    note = `gemittelt über ${fmt(p - t0, 1)} Durchläufe`;
+  }
+  if (!mean) return null;
+  return { c: forceCoeffs(mean.F), note, change, p };
+}
+
+function updateForceHud() {
+  const box = $('#hudForces');
+  if (!box) return;
+  const d = App.dom, st = forceState();
+  box.hidden = !(d && d.walls && d.walls.nb && App.started);
+  if (box.hidden) return;
+  const U = App.wind.speed, A = d.aref * d.dx * d.dx, qA = 0.5 * RHO_AIR * U * U * A;
+  const val = (c) => `${fmt(c, Math.abs(c) < 0.1 ? 3 : 2)} · ${fmtForce(c * qA)}`;
+  $('#hudCw').textContent = st ? val(st.c[0]) : '–';
+  $('#hudCa').textContent = st ? val(st.c[2]) : '–';
+  const side = Math.abs(App.wind.yaw) > 0.5 && App.model && App.model.meta.ground;
+  $('#hudCsRow').style.display = side ? '' : 'none';
+  if (side) $('#hudCs').textContent = st ? val(st.c[1]) : '–';
+  $('#hudNote').textContent = `${d.arefName} ${fmt(A, A < 10 ? 2 : 1)} m²` + (st ? ` · ${st.note}` : ' · erste Werte folgen');
+  drawForcePlot();
+}
+
+function fmtForce(F) {
+  const a = Math.abs(F);
+  return a >= 1e4 ? fmt(F / 1000, 1) + ' kN' : a >= 100 ? fmt(F) + ' N' : fmt(F, 1) + ' N';
+}
+
+// Verlauf von cW (gelb) und cA (blau) über die Durchläufe
+function drawForcePlot() {
+  const cv = $('#hudPlot'), smp = App.force.samples;
+  const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (!W || !H) return;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const g = cv.getContext('2d');
+  g.clearRect(0, 0, W, H);
+  if (smp.length < 2) return;
+  const cs = smp.map(s => forceCoeffs(s.F));
+  const p0 = smp[0].p1, p1 = smp[smp.length - 1].p1;
+  // Wertebereich aus der zweiten Hälfte (die Anfangsspitzen sollen den Maßstab nicht verderben)
+  let lo = Infinity, hi = -Infinity;
+  for (let i = Math.floor(cs.length / 2); i < cs.length; i++) for (const k of [0, 2]) { lo = Math.min(lo, cs[i][k]); hi = Math.max(hi, cs[i][k]); }
+  const pad = Math.max(0.05, (hi - lo) * 0.25);
+  lo -= pad; hi += pad;
+  const X = (p) => (p - p0) / Math.max(p1 - p0, 1e-9) * (W - 2) + 1, Y = (v) => H - 2 - (clamp(v, lo, hi) - lo) / (hi - lo) * (H - 4);
+  if (lo < 0 && hi > 0) { g.strokeStyle = 'rgba(255,255,255,.12)'; g.lineWidth = dpr; g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(W, Y(0)); g.stroke(); }
+  for (const [k, col] of [[2, '#7fb2e8'], [0, '#f4b740']]) {
+    g.strokeStyle = col; g.lineWidth = 1.4 * dpr; g.beginPath();
+    cs.forEach((c, i) => { const x = X(smp[i].p1), y = Y(c[k]); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.stroke();
+  }
+}
+
 // ---------- Hauptschleife ----------
 function frame(now) {
   requestAnimationFrame(frame);
@@ -2639,11 +4000,13 @@ function renderFrame(now, stepsOverride) {
   r.resize(W, H);
   const enc = dev.createCommandEncoder();
   const sim = App.sim;
+  let forceMeta = null;
   if (sim.r && !App.building && App.dom) {
     if (App.running || stepsOverride) {
       if (!App.started) {
         sim.init(enc); sim.resetStats();
         App.started = true; App.steps = 0; App.avgReset = true; App.pRef = 0; App.pRefN = 0; App.runId++;
+        resetForces(); App.force.lastT = now;
       }
       let k = stepsOverride || App.spf;
       if (!stepsOverride) {
@@ -2656,8 +4019,14 @@ function renderFrame(now, stepsOverride) {
       sim.steps(enc, k);
       App.steps += k;
       App.kSince = (App.kSince || 0) + k;
+      App.force.acc += k;
       App.fieldDirty = true;
       if (now - App.lastHealth > 500) { App.lastHealth = now; checkHealth(); }
+      if (now - (App.force.lastT || 0) > 450 && sim.reduceForces(enc)) {
+        App.force.lastT = now;
+        forceMeta = { n: App.force.acc, p1: App.steps * U_LB / App.dom.nx, gen: App.force.gen };
+        App.force.acc = 0;
+      }
     }
     if (App.fieldDirty && App.started) {
       let mode = 0, alpha = 1;
@@ -2677,6 +4046,7 @@ function renderFrame(now, stepsOverride) {
   const target = TEST ? App.offView(W, H) : App.ctx.getCurrentTexture().createView();
   r.draw(enc, target, sc);
   dev.queue.submit([enc.finish()]);
+  if (forceMeta) sim.readForces().then(F => onForces(F, forceMeta));
   // Zeit bis zur Fertigstellung der Arbeit dieses Bilds auf der Grafikkarte messen
   if (!App.gpuPending && !stepsOverride) {
     App.gpuPending = true;
@@ -2701,13 +4071,13 @@ async function checkHealth() {
       if (bad && App.running) {
         App.restarts++;
         App.started = false; App.steps = 0; App.hasField = false;
-        if (App.restarts > 3) {
+        if (App.restarts > 3 || App.damp >= DAMP_LEVELS.length - 1) {
           pauseRun();
-          toast('Die Rechnung wird hier immer wieder instabil, auch mit viel Dämpfung. Das liegt nicht an der Strömung, sondern an der Grafikkarte oder dem Browser dieses Geräts.');
+          toast('Die Rechnung wird hier immer wieder instabil, auch mit viel Dämpfung. Eine feinere Stufe oder eine kleinere Geschwindigkeit kann helfen.');
         } else {
-          App.damp = Math.min(App.damp * 4, 300);
+          App.damp++;
           sim.setParams(physParams());
-          toast('Die Rechnung ist instabil geworden und wurde mit etwas mehr Dämpfung neu gestartet.');
+          toast('Die Rechnung ist instabil geworden und wurde mit etwas mehr Dämpfung neu gestartet. Die Kennzahlen werden dadurch ungenauer.');
         }
       }
     }
@@ -2716,43 +4086,66 @@ async function checkHealth() {
 }
 
 // ---------- Selbsttest der Grafikkarte ----------
-// Kleines Gitter mit Quader, 16 Schritte: Ergebnis der Grafikkarte gegen die Rechnung auf dem Prozessor.
+// Kleine Gitter (Kugel frei, Quader auf glattem und auf rauem Boden), je instationär und stationär:
+// einige Schritte auf der Grafikkarte gegen dieselbe Rechnung auf dem Prozessor.
 // Zuerst alle Schritte in einem Durchgang ('one'); klappt das nicht, je Schritt ein eigener ('each').
+function selfTestParams(P) {
+  return { nu0: P.nu0, sigma: P.sigma, noise: P.noise, sponge: P.sponge, floor: P.floor, z0: P.z0, pnorm: P.pnorm, amb: P.amb, nutMax: P.nutMax, cw: P.cw, kin: P.kin, win: P.win, ustar: P.ustar, reib: P.reib, ml: P.ml, wand: P.wand, mlD0: P.mlD0, mlD1: P.mlD1, turb: P.turb };
+}
+
 async function gpuSelfTest() {
-  const dev = App.dev, K = 16, out = { ok: false, mode: null, runs: [] };
+  const dev = App.dev, K = 8, out = { ok: false, mode: null, runs: [] };
+  const cases = [];
+  for (const kind of ['frei', 'glatt', 'fest']) for (const sst of [false, true]) {
+    const T = refCase(kind), N = T.N, P = T.P, W = T.walls;
+    const fa = new Float64Array(19 * N), fb = new Float64Array(19 * N), mac = new Float64Array(4 * N), turb = new Float64Array(7 * N), bf = new Float64Array(4 * Math.max(1, W.nb));
+    const ka = new Float64Array(2 * N), kb = new Float64Array(2 * N), bw = Float64Array.from(T.bw);
+    refInit(fa, fb, mac, turb, W.info, P); refInitKW(ka, kb, P);
+    let a = fa, b = fb, x = ka, y = kb;
+    for (let k = 0; k < K; k++) {
+      refTurb(mac, W.info, W.blist, bw, turb, P, sst, T.wd, x, y);
+      refStep(a, b, W.info, W.blist, turb, mac, bf, P, bw);
+      [a, b] = [b, a]; if (sst) [x, y] = [y, x];
+    }
+    cases.push({ T, sst, f: a, mac, turb, kw: x, bf, bw });
+  }
   for (const mode of ['one', 'each']) {
     const run = { mode, cases: [] };
     let allOk = true;
-    for (const floor of [2, 1, 0]) {
-      const T = refCase(floor), N = T.N, sim = new Sim(dev);
+    for (const C of cases) {
+      const T = C.T, N = T.N, sim = new Sim(dev);
       sim.passMode = mode;
-      const res = { floor };
+      const res = { kind: T.kind, sst: C.sst };
       try {
-        await sim.build({ nx: T.nx, ny: T.ny, nz: T.nz }, T.info, T.solid, App.renderer.tracePipe, App.renderer.sampler);
-        sim.setParams({ tau0: T.P.tau0, floor, delta: T.P.delta, cs: T.P.csmag, noise: T.P.noise, sponge: T.P.sponge });
+        await sim.build({ nx: T.nx, ny: T.ny, nz: T.nz }, { info: T.walls.info, blist: T.walls.blist, bw: T.bw, nb: T.walls.nb, solid: T.solid, wd: T.wd }, C.sst, App.renderer.tracePipe, App.renderer.sampler);
+        sim.setParams(selfTestParams(T.P));
         const enc = dev.createCommandEncoder();
         sim.init(enc); sim.steps(enc, K); sim.copy(enc, 0, 1);
         dev.queue.submit([enc.finish()]);
-        const gf = await sim.readF(), gm = await sim.readMacro(), gt = await sim.readTex();
-        const fa = new Float64Array(19 * N), fb = new Float64Array(19 * N), cm = new Float64Array(4 * N);
-        refInit(fa, fb, cm, T.info, T.P);
-        let a = fa, b = fb;
-        for (let k = 0; k < K; k++) { refStep(a, b, cm, T.info, T.P); const t = a; a = b; b = t; }
-        let df = 0, dm = 0, dt = 0, nan = 0;
-        for (let i = 0; i < 19 * N; i++) {
-          if (!Number.isFinite(gf[i])) { nan++; continue; }
-          df = Math.max(df, Math.abs(gf[i] - a[i]));
-        }
+        const gf = await sim.readF(), gm = await sim.readMacro(), gt = await sim.readTex(), gu = await sim.readTurb(), gk = await sim.readKW(), gb = await sim.readBForce(), gw = await sim.readBW();
+        let df = 0, dm = 0, dt = 0, dn = 0, dk = 0, nan = 0, dw = 0, nmax = 1e-6;
+        for (let c = 0; c < N; c++) nmax = Math.max(nmax, Math.abs(C.turb[c * 7 + 6]));
+        for (let i = 0; i < gw.length; i++) { if (!Number.isFinite(gw[i])) nan++; else dw = Math.max(dw, Math.abs(gw[i] - C.bw[i])); }
+        for (let i = 0; i < 19 * N; i++) { if (!Number.isFinite(gf[i])) { nan++; continue; } df = Math.max(df, Math.abs(gf[i] - C.f[i])); }
         for (let c = 0; c < N; c++) {
           if (T.solid[c]) continue;
           for (let k = 0; k < 4; k++) {
             const g = gm[c * 4 + k], t = gt[c * 4 + k];
             if (!Number.isFinite(g) || !Number.isFinite(t)) { nan++; continue; }
-            dm = Math.max(dm, Math.abs(g - cm[c * 4 + k]));
+            dm = Math.max(dm, Math.abs(g - C.mac[c * 4 + k]));
             dt = Math.max(dt, Math.abs(t - g));
           }
+          const n = gu[c * 7 + 6], nr = C.turb[c * 7 + 6];
+          if (!Number.isFinite(n)) nan++; else dn = Math.max(dn, Math.abs(n - nr) / nmax);
+          if (C.sst) for (let k = 0; k < 2; k++) {
+            const v = gk[c * 2 + k], r = C.kw[c * 2 + k];
+            if (!Number.isFinite(v)) nan++; else dk = Math.max(dk, Math.abs(v - r) / (Math.abs(r) + KW_MIN[k] * 100));
+          }
         }
-        Object.assign(res, { df, dm, dt, nan, ok: nan === 0 && df < 1e-4 && dm < 1e-4 && dt < 5e-4 });
+        const Fg = [0, 0, 0], Fc = [0, 0, 0];
+        for (let i = 0; i < T.walls.nb; i++) for (let k = 0; k < 3; k++) { Fg[k] += gb[i * 4 + k]; Fc[k] += C.bf[i * 4 + k]; }
+        const dF = Math.hypot(Fg[0] - Fc[0], Fg[1] - Fc[1], Fg[2] - Fc[2]) / (Math.hypot(...Fc) + 1e-6);
+        Object.assign(res, { df, dm, dt, dn, dk, dF, dw, nan, ok: nan === 0 && df < 1e-4 && dm < 1e-4 && dt < 5e-4 && dn < 1e-2 && dk < 1e-2 && dF < 1e-3 && dw < 1e-4 });
       } catch (e) {
         Object.assign(res, { ok: false, err: String(e && e.message || e) });
       }
@@ -2770,13 +4163,14 @@ function updateGpuInfo() {
   const i = App.adapterInfo || {}, t = App.selfTest;
   const name = [i.vendor, i.architecture, i.description].filter(Boolean).join(', ') || 'unbekannt';
   let txt = `Grafikkarte: ${name}. ` + (App.mlups > 0 ? `Rechenleistung etwa ${fmtBig(App.mlups * 1e6)} Zellen je Sekunde. ` : '');
+  const e = (v) => v.toExponential(1).replace('.', ',');
   if (!t) txt += 'Selbsttest nicht ausgeführt.';
   else if (t.ok) {
-    const worst = Math.max(...t.runs[t.runs.length - 1].cases.map(c => c.df));
-    txt += `Selbsttest bestanden (größte Abweichung zur Rechnung auf dem Prozessor ${worst.toExponential(1).replace('.', ',')}` + (t.mode === 'each' ? ', jeder Schritt einzeln abgeschickt).' : ').');
+    const cs = t.runs[t.runs.length - 1].cases;
+    txt += `Selbsttest bestanden (größte Abweichung zur Rechnung auf dem Prozessor: Verteilungen ${e(Math.max(...cs.map(c => c.df)))}, Kräfte ${e(Math.max(...cs.map(c => c.dF)))} relativ` + (t.mode === 'each' ? ', jeder Schritt einzeln abgeschickt).' : ').');
   } else {
-    txt += 'Selbsttest nicht bestanden: ' + t.runs.map(r => r.mode + ' ' + r.cases.map(c => c.err ? `Boden ${c.floor}: ${c.err}` :
-      `Boden ${c.floor}: f ${c.df.toExponential(1)}, u ${c.dm.toExponential(1)}, Textur ${c.dt.toExponential(1)}, ungültig ${c.nan}`).join('; ')).join(' | ');
+    txt += 'Selbsttest nicht bestanden: ' + t.runs.map(r => r.mode + ' ' + r.cases.map(c => c.err ? `${c.kind}/${c.sst ? 'SST' : 'LES'}: ${c.err}` :
+      `${c.kind}/${c.sst ? 'SST' : 'LES'}: f ${e(c.df)}, u ${e(c.dm)}, Textur ${e(c.dt)}, nu_t ${e(c.dn)}, k/ω ${e(c.dk)}, Kraft ${e(c.dF)}, ungültig ${c.nan}`).join('; ')).join(' | ');
   }
   if (App.benchBad > 0) txt += ` Großes Gitter mit gleichförmiger Strömung: ${fmt(App.benchBad)} Zellen mit falschen Werten.`;
   else if (App.benchBad === 0) txt += ' Großes Gitter mit gleichförmiger Strömung: in Ordnung' + (SIM_PASS_MODE === 'each' ? ' (jeder Schritt einzeln abgeschickt).' : '.');
@@ -2800,15 +4194,15 @@ async function benchmarkRun() {
   const sim = new Sim(dev);
   let mlups = 0, bad = -1;
   try {
-    await sim.build({ nx, ny, nz }, new Uint32Array(N), new Uint8Array(N), App.renderer.tracePipe, App.renderer.sampler);
-    sim.setParams({ tau0: 0.52, floor: 0, delta: 0 });
+    await sim.build({ nx, ny, nz }, { info: new Uint32Array(N), blist: new Uint32Array(B_STRIDE), bw: new Float32Array(nx * ny * 8), nb: 0, solid: new Uint8Array(N), wd: new Float32Array(N).fill(1e6) }, false, App.renderer.tracePipe, App.renderer.sampler);
+    sim.setParams({ nu0: 0.006, floor: 0 });
     let enc = dev.createCommandEncoder(); sim.init(enc); sim.steps(enc, 4); dev.queue.submit([enc.finish()]);
     await dev.queue.onSubmittedWorkDone();
     // erst aufwärmen (die Grafikkarte taktet hoch), dann messen
     let steps = 0, t0 = performance.now(), batch = 4, ms = 0;
     for (let phase = 0; phase < 2; phase++) {
       steps = 0; t0 = performance.now();
-      while (performance.now() - t0 < (phase ? 200 : 350) && steps < 8000) {
+      while (performance.now() - t0 < (phase ? 250 : 400) && steps < 8000) {
         enc = dev.createCommandEncoder(); sim.steps(enc, batch); dev.queue.submit([enc.finish()]);
         await dev.queue.onSubmittedWorkDone();
         steps += batch; batch = Math.min(64, batch * 2);
@@ -2865,7 +4259,17 @@ function buildUI() {
   $('#pitch').addEventListener('change', () => commitWind());
   $('#speed').addEventListener('input', e => {
     App.wind.speed = +e.target.value; updateWindUI(); updateLegend(); updateHud(true);
-    if (App.dom && App.sim.r) App.sim.setParams(physParams());
+    if (App.dom && App.sim.r) { App.sim.setParams(physParams()); if (App.started) resetForces(false); }
+  });
+  onSeg('#modeSeg', v => {
+    if (v === App.mode) return;
+    App.mode = v;
+    // stationär: gemitteltes Feld zeigen (Restschwankungen glätten); zurück zur vorigen Wahl beim Wechsel
+    if (v === 'sst') { App.view.avgBefore = App.view.avg; App.view.avg = true; } else if (App.view.avgBefore != null) App.view.avg = App.view.avgBefore;
+    $('#avgChk').checked = App.view.avg; App.avgReset = true;
+    App.damp = 0;
+    updateModeUI(); updateLevelUI();
+    if (App.model) rebuild();
   });
 
   const lv = $('#levels');
@@ -2875,7 +4279,7 @@ function buildUI() {
     b.style.height = (30 + 70 * i / (LEVELS.length - 1)) + '%';
     b.title = `Stufe ${i + 1}: ${L.name}, ${fmtBig(L.cells)} Zellen`;
     b.setAttribute('aria-label', b.title);
-    b.addEventListener('click', () => { if (App.level === i && !App.customCells) return; App.level = i; App.customCells = null; App.damp = 1; updateLevelUI(); rebuild(); });
+    b.addEventListener('click', () => { if (App.level === i && !App.customCells) return; App.level = i; App.customCells = null; App.damp = 0; updateLevelUI(); rebuild(); });
     lv.appendChild(b);
   });
 
@@ -2921,8 +4325,17 @@ function buildUI() {
   $('#rowPos').value = App.view.row * 1000; $('#rowOut').textContent = fmt(App.view.row * 100) + ' %';
   $('#surfChk').checked = App.view.surface;
   setSeg('#sliceSeg', App.view.slice); syncSlice();
+  if (App.mode === 'sst') { App.view.avgBefore = App.view.avg; App.view.avg = true; }
   $('#avgChk').checked = App.view.avg;
   $('#animChk').checked = App.view.anim;
+  updateModeUI();
+}
+
+function updateModeUI() {
+  setSeg('#modeSeg', App.mode);
+  $('#modeTxt').textContent = App.mode === 'sst'
+    ? 'Gemittelte Strömung (RANS, k-ω SST). Rechnet, bis sich cW und cA nicht mehr ändern. Dauert länger, das Bild ist ruhig.'
+    : 'Zeitgenau: Wirbel lösen sich ab und wandern mit (Grobstruktursimulation mit Wandgesetz). cW und cA werden über die Zeit gemittelt.';
 }
 
 function defaultSlicePos(v) {
@@ -2990,9 +4403,9 @@ async function main() {
   App.sim = new Sim(dev);
   attachCameraInput($('#view'), App.cam, () => $('#startHint').classList.add('gone'));
 
-  // Grenzen der Grafikkarte: welche Stufen passen?
+  // Grenzen der Grafikkarte: welche Stufen passen? (ein Satz Verteilungen muss in einen Puffer passen)
   const maxCells = Math.floor(Math.min(L.maxStorageBufferBindingSize, L.maxBufferSize) / (19 * 4));
-  App.levelOk = LEVELS.map(l => l.cells * 1.08 <= maxCells && l.cells <= 16e6);
+  App.levelOk = LEVELS.map(l => l.cells * 1.08 <= maxCells);
   App.adapterInfo = adapter.info || {};
   showBusy('Grafikkarte wird geprüft …');
   if (!QS.has('ohnetest')) App.selfTest = await gpuSelfTest();
@@ -3001,10 +4414,10 @@ async function main() {
   if ((App.selfTest && !App.selfTest.ok) || App.benchBad > 0) $('#warn').hidden = false;
   updateGpuInfo();
   const okIdx = App.levelOk.map((ok, i) => ok ? i : -1).filter(i => i >= 0);
-  // Empfehlung: zwei Durchläufe der Luft durch den Kanal (etwa 20·nx Schritte, nx ≈ 2·∛Zellen) in höchstens 25 s
+  // Empfehlung: ein Durchlauf der Luft durch den Kanal (nx/U Schritte, nx ≈ 2·∛Zellen) in höchstens FLOW_TIME Sekunden
   let rec = 0;
   for (const i of okIdx) {
-    const c = LEVELS[i].cells, t = 20 * 2 * Math.cbrt(c) * c / (App.mlups * 1e6);
+    const c = LEVELS[i].cells, t = 2 * Math.cbrt(c) / U_LB * c / (App.mlups * 1e6);
     if (App.mlups > 0 && t <= FLOW_TIME) rec = i;
   }
   if (!App.mlups) rec = Math.min(2, okIdx[okIdx.length - 1]);
@@ -3042,6 +4455,77 @@ window.WK = {
     return [w, h];
   },
   readMacro: (a, b) => App.sim.readMacro(a, b),
+  // Kennzahlen: Mittel der Messwerte mit Ende in (a, b] Durchläufen; Zustand wie in der Anzeige
+  coeffs(a = 0, b = Infinity) { const m = forceMean(a, b); return m && forceCoeffs(m.F); },
+  forceState: () => forceState(),
+  samples: () => App.force.samples.map(s => ({ p: s.p1, n: s.n, c: forceCoeffs(s.F) })),
+  // Viskosität im Gitter vorgeben (für Prüfungen bei kleiner Reynoldszahl), null = Luft
+  setNu(nu) { App.nuOverride = nu || 0; if (App.sim.r) App.sim.setParams(physParams()); },
+  params: () => physParams(),
+  passes: () => App.dom ? App.steps * U_LB / App.dom.nx : 0,
+  // Geschwindigkeit entlang einer Gitterzeile (x) bei (y, z): Feld aus u_x, u_y, u_z, Dichteabweichung
+  async lineX(y, z) { const d = App.dom; return App.sim.readMacro(d.nx * (y + d.ny * z), d.nx); },
+  // Prüflauf im Hintergrund; Stand in WK.job (state: 'läuft' | 'fertig' | 'instabil' | 'fehler')
+  // o: { model, cells, mode ('les'|'sst'), speed, yaw, pitch, nu (Gitterviskosität), passes, settle, margins, line (Mittel von u_x auf der Mittellinie),
+  //      reib, ml (Faktoren für Wandreibung und wandnahen Mischungsweg), over (weitere Parameter überschreiben, z. B. { sigma: 1 }) }
+  run(o) {
+    if (WK.job && WK.job.state === 'läuft') WK.job.stop = true;
+    const job = WK.job = { state: 'läuft', o, p: 0 };
+    job.promise = (async () => {
+      if (App.building) await App.buildChain;
+      pauseRun();
+      App.margins = Object.assign({}, MARGINS, o.margins || {});
+      App.mode = o.mode || 'les'; updateModeUI();
+      App.customCells = o.cells || null;
+      App.nuOverride = 0; App.damp = 0; App.reib = o.reib != null ? o.reib : null; App.ml = o.ml != null ? o.ml : null; App.over = o.over || null;
+      App.wind.yaw = o.yaw || 0;
+      selectExample(o.model || 'kugel');
+      if (o.speed) App.wind.speed = o.speed;
+      if (o.pitch != null) App.wind.pitch = o.pitch;
+      updateWindUI(); updateLegend();
+      rebuild();
+      await App.buildChain;
+      await WK.waitReady();
+      App.nuOverride = o.nu || 0;
+      App.sim.setParams(physParams());
+      App.started = false; App.steps = 0; App.restarts = 0;
+      // je Abschnitt höchstens etwa 0,15 s Rechenarbeit (sonst setzt Windows die Grafikkarte zurück)
+      const d = App.dom, passes = o.passes || 6, settle = o.settle != null ? o.settle : SETTLE_PASSES, batch = o.batch || clamp(Math.round(1.5e8 / d.N), 1, 200);
+      let line = null, lineN = 0;
+      const yc = Math.round((d.mlo[1] + d.mhi[1]) / 2), zc = Math.round(d.ground ? Math.max(1, d.mhi[2] / 2) : (d.mlo[2] + d.mhi[2]) / 2);
+      const t0 = performance.now();
+      let lastStat = 0;
+      while (App.steps * U_LB / d.nx < passes && !job.stop) {
+        renderFrame(performance.now(), batch);
+        await App.dev.queue.onSubmittedWorkDone();
+        job.p = App.steps * U_LB / d.nx;
+        if (App.steps - lastStat >= 1000) {
+          lastStat = App.steps;
+          const st = await App.sim.readStats();
+          if (st) {
+            if (st.pRef !== null && Number.isFinite(st.pRef)) App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.5) : st.pRef;
+            if (!(st.umax < 3.3 * U_LB)) { job.state = 'instabil'; break; }
+          }
+          if (o.line && job.p > settle) {
+            const v = await WK.lineX(yc, zc);
+            if (!line) line = new Float64Array(d.nx);
+            for (let i = 0; i < d.nx; i++) line[i] += v[i * 4];
+            lineN++;
+          }
+        }
+      }
+      await new Promise(r => setTimeout(r, 600));
+      const sec = (performance.now() - t0) / 1000;
+      job.result = {
+        coeff: WK.coeffs(settle, Infinity), state: forceState(), samples: WK.samples(), steps: App.steps, sec, mlups: d.N * App.steps / sec / 1e6,
+        dom: { nx: d.nx, ny: d.ny, nz: d.nz, N: d.N, dx: d.dx, mlo: d.mlo, mhi: d.mhi, aref: d.aref, nb: d.walls.nb, links: d.walls.links, misses: d.walls.misses },
+        params: physParams(), pRef: App.pRef, line: line ? Array.from(line, v => v / lineN) : null, lineAt: [yc, zc],
+      };
+      if (job.state === 'läuft') job.state = 'fertig';
+    })().catch(e => { job.state = 'fehler'; job.err = String(e && e.stack || e); });
+    return 'gestartet';
+  },
+  status() { const j = WK.job; return j ? { state: j.state, p: +(j.p || 0).toFixed(2), err: j.err } : null; },
 };
 
 main().catch(e => { console.error(e); fatal('Start fehlgeschlagen', String(e && e.message || e)); });
