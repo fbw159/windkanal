@@ -2562,7 +2562,7 @@ async function benchmark() {
     let steps = 0, t0 = performance.now(), batch = 4, ms = 0;
     for (let phase = 0; phase < 2; phase++) {
       steps = 0; t0 = performance.now();
-      while (performance.now() - t0 < (phase ? 160 : 120) && steps < 6000) {
+      while (performance.now() - t0 < (phase ? 200 : 350) && steps < 8000) {
         enc = dev.createCommandEncoder(); sim.steps(enc, batch); dev.queue.submit([enc.finish()]);
         await dev.queue.onSubmittedWorkDone();
         steps += batch; batch = Math.min(64, batch * 2);
