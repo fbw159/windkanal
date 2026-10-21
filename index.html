@@ -1,0 +1,2778 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windkanal</title>
+<meta name="description" content="Virtueller Windkanal: Strömung um 3D-Modelle im Browser, gerechnet mit der Lattice-Boltzmann-Methode auf der Grafikkarte.">
+<style>
+:root {
+  --panel: #121a22;
+  --panel-2: #19232d;
+  --line: #273441;
+  --text: #e6ebf0;
+  --muted: #8e9cab;
+  --wind: #f4b740;
+  --wind-ink: #2a1d05;
+  --stage: #0b1016;
+  --font: Bahnschrift, "DIN Alternate", "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  display: flex; background: var(--stage); color: var(--text);
+  font: 400 14px/1.4 var(--font); font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--wind); outline-offset: 2px; }
+
+/* ---------- Seitenleiste ---------- */
+#panel {
+  width: 344px; flex: none; height: 100%; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--panel); border-right: 1px solid var(--line);
+  padding: 18px 20px 22px; scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.ph { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.logo { width: 40px; height: 40px; flex: none; color: #c9d1da; }
+.brand { flex: 1; min-width: 0; }
+.brand h1 { margin: 2px 0 0; font-size: 22px; font-weight: 600; letter-spacing: .01em; line-height: 1.1; }
+.brand p { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.3; }
+.iconbtn {
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel-2);
+  cursor: pointer; display: grid; place-items: center; font-weight: 600; flex: none; padding: 0;
+}
+.iconbtn:hover { border-color: #3a4a5a; }
+.iconbtn svg { width: 18px; height: 18px; }
+.iconbtn.big { width: 44px; height: 44px; border-radius: 12px; }
+
+.step { padding: 14px 0 16px; border-top: 1px solid var(--line); }
+.step h2 { margin: 0 0 11px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 9px; }
+.step h2 .n {
+  width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 600; color: var(--muted); border: 1px solid #3a4856;
+}
+.hint { color: var(--muted); font-size: 12px; }
+.info { margin: 9px 0 0; color: #b9c4cf; font-size: 13px; }
+p.hint { margin: 4px 0 0; }
+
+/* Modellwahl */
+.models { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.models button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px 7px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; cursor: pointer;
+  font-size: 12.5px; color: #c4ced8;
+}
+.models button svg { width: 38px; height: 24px; }
+.models button:hover { border-color: #3c4c5c; color: var(--text); }
+.models button[aria-checked="true"] { border-color: var(--wind); color: var(--text); background: #1f2a34; }
+.models button[aria-checked="true"] svg { color: var(--wind); }
+.filerow { display: flex; align-items: center; gap: 10px; margin-top: 9px; flex-wrap: wrap; }
+.ghost {
+  background: transparent; border: 1px solid #364554; border-radius: 8px; padding: 6px 11px; cursor: pointer;
+  color: var(--text);
+}
+.ghost:hover { border-color: #4b5d6f; background: #16202a; }
+.ghost.small { padding: 3px 9px; font-size: 12.5px; }
+.ghost.on { border-color: var(--wind); }
+.upload { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); }
+.upname { font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.num input { width: 76px; background: #0f161d; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; text-align: right; }
+
+/* Zeilen mit Beschriftung */
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; margin-top: 4px; }
+.row > span:first-child { color: #c4ced8; white-space: nowrap; }
+.slider { display: grid; grid-template-columns: 104px 1fr 74px; }
+.slider output { text-align: right; color: var(--text); white-space: nowrap; font-size: 13px; }
+.sub { margin: 0 0 4px 10px; padding-left: 12px; border-left: 1px solid var(--line); }
+.sub .slider { grid-template-columns: 82px 1fr 64px; }
+
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: #2c3a48; }
+input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: #2c3a48; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; margin-top: -5.5px; border-radius: 50%; background: #dfe6ec; border: 0; }
+input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: #dfe6ec; border: 0; }
+input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
+
+/* Umschalter */
+.seg { display: inline-flex; background: #0f161d; border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex-wrap: wrap; justify-content: flex-end; }
+.seg button { border: 0; background: transparent; padding: 3px 9px; border-radius: 6px; cursor: pointer; color: #aab6c2; font-size: 13px; }
+.seg button[aria-pressed="true"] { background: #2a3744; color: var(--text); }
+.seg button:hover { color: var(--text); }
+
+.tgl { display: flex; align-items: center; gap: 9px; min-height: 30px; margin-top: 2px; cursor: pointer; color: #d3dbe3; }
+.tgl input { appearance: none; -webkit-appearance: none; width: 32px; height: 18px; border-radius: 9px; background: #2c3a48; position: relative; cursor: pointer; flex: none; margin: 0; transition: background .15s; }
+.tgl input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #9aa8b5; transition: transform .15s, background .15s; }
+.tgl input:checked { background: #4c5d1f; background: #5a4a1c; }
+.tgl input:checked::after { transform: translateX(14px); background: var(--wind); }
+
+/* Windrichtung (Drehteller) */
+.dialrow { display: flex; align-items: center; gap: 16px; }
+#dial { width: 148px; height: 148px; flex: none; cursor: grab; touch-action: none; border-radius: 50%; }
+#dial:active { cursor: grabbing; }
+.dialtxt .big { font-size: 30px; font-weight: 600; line-height: 1; }
+#yawWord { color: #c4ced8; margin-top: 4px; }
+.dialtxt .hint { margin-top: 8px; }
+
+/* Genauigkeit */
+.levels { display: flex; align-items: flex-end; gap: 5px; height: 46px; }
+.levels button {
+  flex: 1; border: 0; border-radius: 3px 3px 1px 1px; background: #26333f; cursor: pointer; padding: 0; position: relative;
+}
+.levels button.on { background: #9fb1c3; }
+.levels button.sel { background: var(--wind); }
+.levels button:disabled { cursor: not-allowed; background: repeating-linear-gradient(135deg, #1d2731 0 4px, #141c24 4px 8px); }
+.levels button.rec::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: #7fd0a8; }
+.levelscale { display: flex; justify-content: space-between; color: var(--muted); font-size: 11.5px; margin-top: 10px; }
+
+/* Start */
+.go { display: flex; gap: 8px; padding: 2px 0 16px; }
+.primary {
+  flex: 1; border: 0; border-radius: 12px; background: var(--wind); color: var(--wind-ink);
+  font-size: 16px; font-weight: 600; padding: 11px 14px; cursor: pointer;
+}
+.primary:hover { filter: brightness(1.06); }
+.primary.running { background: #2b3845; color: var(--text); }
+.foot { color: #6f7d8b; font-size: 11.5px; margin: 6px 0 0; line-height: 1.45; }
+
+/* ---------- Bühne ---------- */
+#stage { position: relative; flex: 1; min-width: 0; height: 100%; }
+#view, #mirror { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#mirror { pointer-events: none; }
+#hud {
+  position: absolute; top: 14px; right: 14px; padding: 9px 12px; border-radius: 10px;
+  background: rgba(14, 20, 27, .78); border: 1px solid rgba(255, 255, 255, .07); font-size: 12.5px; min-width: 214px;
+  backdrop-filter: blur(6px); pointer-events: none;
+}
+.hudrow { display: flex; justify-content: space-between; gap: 16px; line-height: 1.6; }
+.hudrow span { color: var(--muted); }
+.hudrow b { font-weight: 600; }
+#views { position: absolute; left: 14px; bottom: 14px; display: flex; background: rgba(14, 20, 27, .78); border: 1px solid rgba(255, 255, 255, .07); border-radius: 9px; padding: 3px; }
+#views button { border: 0; background: transparent; padding: 5px 11px; border-radius: 6px; cursor: pointer; color: #c4ced8; font-size: 13px; }
+#views button:hover { background: #24303c; color: var(--text); }
+#legend {
+  position: absolute; right: 14px; bottom: 14px; width: 300px; padding: 9px 12px 7px; border-radius: 10px;
+  background: rgba(14, 20, 27, .78); border: 1px solid rgba(255, 255, 255, .07); font-size: 12px; pointer-events: none;
+}
+#legTitle { color: #c4ced8; margin-bottom: 6px; }
+#legBar { height: 10px; border-radius: 2px; }
+#legTicks { position: relative; height: 18px; margin-top: 3px; color: var(--muted); }
+#legTicks span { position: absolute; white-space: nowrap; }
+#windLabel {
+  position: absolute; left: 0; top: 0; pointer-events: none; color: var(--wind); font-weight: 600; font-size: 13px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .8); white-space: nowrap; transform: translate(-50%, -140%);
+}
+#toast {
+  position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); padding: 9px 14px; border-radius: 10px;
+  background: #24303c; border: 1px solid #36475a; color: var(--text); font-size: 13.5px; opacity: 0; transition: opacity .25s; pointer-events: none;
+  max-width: min(560px, 90%); text-align: center;
+}
+#toast.show { opacity: 1; }
+#busy { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 12px 18px; border-radius: 12px; background: rgba(14, 20, 27, .88); border: 1px solid #2c3a48; }
+#drop { position: absolute; inset: 14px; border: 2px dashed var(--wind); border-radius: 16px; display: grid; place-items: center; font-size: 18px; background: rgba(11, 16, 22, .7); }
+#drop[hidden], #busy[hidden] { display: none; }
+#startHint {
+  position: absolute; left: 14px; top: 14px; max-width: 360px; color: #c4ced8; font-size: 13.5px; line-height: 1.45;
+  background: rgba(14, 20, 27, .78); border: 1px solid rgba(255, 255, 255, .07); padding: 9px 13px; border-radius: 10px;
+  pointer-events: none; transition: opacity .4s;
+}
+#startHint.gone { opacity: 0; }
+
+/* Dialoge */
+.modal { position: fixed; inset: 0; background: rgba(5, 8, 12, .62); display: grid; place-items: center; z-index: 20; padding: 16px; }
+.modal[hidden] { display: none; }
+.card {
+  width: min(620px, 100%); max-height: 100%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 22px 24px; line-height: 1.5;
+}
+.card:focus { outline: none; }
+.card h2 { margin: 0 0 10px; font-size: 20px; font-weight: 600; }
+.card h3 { margin: 16px 0 4px; font-size: 15px; font-weight: 600; }
+.card p, .card li { color: #c9d2db; max-width: 70ch; }
+.card ol { padding-left: 20px; margin: 8px 0; }
+.card li { margin: 4px 0; }
+.card .primary { margin-top: 16px; flex: none; padding: 9px 20px; font-size: 15px; }
+
+/* schmale Bildschirme: Ansicht oben, Einstellungen darunter */
+@media (max-width: 820px) {
+  body { flex-direction: column-reverse; overflow: auto; height: auto; }
+  html, body { height: auto; }
+  #stage { height: 58vh; min-height: 320px; flex: none; }
+  #panel { width: 100%; height: auto; overflow: visible; border-right: 0; border-top: 1px solid var(--line); }
+  #legend { width: auto; left: 14px; bottom: 56px; }
+  #hud { min-width: 0; font-size: 11.5px; padding: 6px 9px; }
+  #startHint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+</style>
+</head>
+<body>
+<aside id="panel" aria-label="Einstellungen">
+  <header class="ph">
+    <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="17" cy="20" r="6.5" fill="currentColor" opacity=".9"/>
+      <path d="M2 11c8 0 11 1.5 15 2.6S28 15 38 13M2 29c8 0 11-1.5 15-2.6S28 25 38 27M2 20h6.5M27 20c3 0 6-1.2 11-1.2" fill="none" stroke="var(--wind)" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <div class="brand">
+      <h1>Windkanal</h1>
+      <p>Strömung um 3D-Modelle, gerechnet auf deiner Grafikkarte</p>
+    </div>
+    <button id="helpBtn" class="iconbtn" type="button" aria-label="Hilfe" title="Hilfe (H)">?</button>
+  </header>
+
+  <section class="step" id="stepModel">
+    <h2><span class="n">1</span>Modell</h2>
+    <div class="models" id="models" role="radiogroup" aria-label="Beispielmodelle"></div>
+    <div class="filerow">
+      <button id="fileBtn" class="ghost" type="button">Eigenes Modell laden</button>
+      <span class="hint">STL oder OBJ, auch per Ziehen ins Fenster</span>
+      <input id="fileIn" type="file" accept=".stl,.obj" hidden>
+    </div>
+    <div id="uploadOpts" class="upload" hidden>
+      <div class="upname" id="upName"></div>
+      <label class="row"><span>Größte Länge</span><span class="num"><input id="upSize" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"> m</span></label>
+      <div class="row"><span>Hochachse der Datei</span>
+        <div class="seg" id="upAxis"><button type="button" data-v="z">z</button><button type="button" data-v="y">y</button></div></div>
+      <div class="row"><span>Ausrichtung</span><button id="upTurn" class="ghost small" type="button">Um 90° drehen</button></div>
+      <label class="tgl"><input id="upGround" type="checkbox"><span>Steht auf dem Boden</span></label>
+      <div class="row" id="upKindRow"><span>Boden wie bei</span>
+        <div class="seg" id="upKind"><button type="button" data-v="fixed">Gebäude</button><button type="button" data-v="slip">Fahrzeug</button></div></div>
+    </div>
+    <p class="info" id="modelInfo"></p>
+  </section>
+
+  <section class="step" id="stepWind">
+    <h2><span class="n">2</span>Wind</h2>
+    <div class="dialrow">
+      <canvas id="dial" aria-label="Windrichtung" role="slider" tabindex="0" aria-valuemin="-180" aria-valuemax="180"></canvas>
+      <div class="dialtxt">
+        <div class="big" id="yawTxt">0°</div>
+        <div id="yawWord">von vorn</div>
+        <div class="hint">Pfeil am Ring ziehen</div>
+      </div>
+    </div>
+    <label class="row slider" id="pitchRow"><span>Neigung</span><input id="pitch" type="range" min="-20" max="20" step="1"><output id="pitchOut"></output></label>
+    <label class="row slider"><span>Geschwindigkeit</span><input id="speed" type="range" min="1" max="60" step="1"><output id="speedOut"></output></label>
+  </section>
+
+  <section class="step" id="stepRes">
+    <h2><span class="n">3</span>Genauigkeit</h2>
+    <div class="levels" id="levels" role="radiogroup" aria-label="Genauigkeit"></div>
+    <div class="levelscale"><span>schneller</span><span>feiner</span></div>
+    <p class="info" id="levelTxt"></p>
+    <p class="hint" id="recTxt"></p>
+  </section>
+
+  <div class="go">
+    <button id="runBtn" class="primary" type="button">Windkanal starten</button>
+    <button id="resetBtn" class="iconbtn big" type="button" aria-label="Strömung neu starten" title="Strömung neu starten (R)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4.5H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <section class="step" id="stepView">
+    <h2><span class="n">4</span>Darstellung</h2>
+    <div class="row"><span>Farbe nach</span>
+      <div class="seg" id="colorSeg"><button type="button" data-v="vel">Geschwindigkeit</button><button type="button" data-v="pres">Druck</button></div></div>
+    <label class="tgl"><input id="linesChk" type="checkbox"><span>Stromlinien</span></label>
+    <div class="sub" id="lineOpts">
+      <label class="row slider"><span>Anzahl</span><input id="nLines" type="range" min="0" max="100" step="1"><output id="nLinesOut"></output></label>
+      <div class="row"><span>Start</span>
+        <div class="seg" id="seedSeg"><button type="button" data-v="flaeche">Fläche</button><button type="button" data-v="reihe">Reihe</button></div></div>
+      <label class="row slider" id="rowRow"><span>Höhe</span><input id="rowPos" type="range" min="0" max="1000" step="1"><output id="rowOut"></output></label>
+    </div>
+    <label class="tgl"><input id="surfChk" type="checkbox"><span>Modell einfärben</span></label>
+    <div class="row"><span>Schnitt</span>
+      <div class="seg" id="sliceSeg"><button type="button" data-v="aus">aus</button><button type="button" data-v="z">waagerecht</button><button type="button" data-v="y">längs</button><button type="button" data-v="x">quer</button></div></div>
+    <label class="row slider" id="slicePosRow"><span>Lage</span><input id="slicePos" type="range" min="0" max="1000" step="1"><output id="slicePosOut"></output></label>
+    <label class="tgl"><input id="avgChk" type="checkbox"><span>Zeitlich mitteln (ruhigeres Bild)</span></label>
+    <label class="tgl"><input id="animChk" type="checkbox"><span>Strömung animieren</span></label>
+  </section>
+  <p class="foot">Lattice-Boltzmann-Verfahren (D3Q19) mit Turbulenzmodell, gerechnet mit WebGPU. Für Bilder und Tendenzen gedacht, nicht für genaue Zahlen.</p>
+</aside>
+
+<main id="stage">
+  <canvas id="view" aria-label="3D-Ansicht des Windkanals"></canvas>
+  <canvas id="mirror" hidden></canvas>
+  <div id="hud" aria-live="polite">
+    <div class="hudrow"><span>Strömung</span><b id="hudState">bereit</b></div>
+    <div class="hudrow"><span>Rechenschritte</span><b id="hudSpeed">–</b></div>
+    <div class="hudrow"><span>Reynoldszahl</span><b id="hudRe">–</b></div>
+  </div>
+  <div id="views" role="group" aria-label="Ansicht">
+    <button type="button" data-v="3d">3D</button><button type="button" data-v="seite">Seite</button><button type="button" data-v="oben">Oben</button><button type="button" data-v="vorn">Vorn</button>
+  </div>
+  <div id="legend">
+    <div id="legTitle"></div>
+    <div id="legBar"></div>
+    <div id="legTicks"></div>
+  </div>
+  <div id="windLabel" aria-hidden="true">Wind</div>
+  <div id="toast" role="status"></div>
+  <div id="busy" hidden><span></span></div>
+  <div id="drop" hidden>Datei loslassen, um das Modell zu laden</div>
+  <div id="startHint">Modell wählen, Wind einstellen, dann <b>Windkanal starten</b>.<br>Mit der Maus ziehen, um die Ansicht zu drehen.</div>
+</main>
+
+<div id="help" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="card" tabindex="-1">
+    <h2 id="helpTitle">So funktioniert der Windkanal</h2>
+    <ol>
+      <li><b>Modell wählen:</b> ein Beispiel oder eine eigene STL- oder OBJ-Datei. Größe und Hochachse lassen sich danach einstellen.</li>
+      <li><b>Wind einstellen:</b> Richtung am Ring, bei frei schwebenden Modellen auch die Neigung, dazu die Geschwindigkeit.</li>
+      <li><b>Genauigkeit wählen</b> und den <b>Windkanal starten</b>. Nach ein bis zwei Durchläufen der Luft durch den Kanal ist die Strömung eingelaufen.</li>
+    </ol>
+    <h3>Ansicht</h3>
+    <p>Linke Maustaste ziehen: drehen. Rechte Maustaste oder Umschalttaste ziehen: verschieben. Mausrad: näher und weiter. Doppelklick: Ansicht zurücksetzen. Leertaste: Start und Pause, R: neu starten.</p>
+    <h3>Was gerechnet wird</h3>
+    <p>Das Modell wird in Würfelzellen zerlegt. Für jede Zelle rechnet die Grafikkarte mit dem Lattice-Boltzmann-Verfahren, wie sich die Luft bewegt, ergänzt um ein einfaches Turbulenzmodell (Smagorinsky). Vorn strömt der Wind ein, seitlich und oben weht er ungestört weiter, hinten verlässt er den Kanal. Bei Fahrzeugen ist der Boden glatt, ohne Reibung, ähnlich wie im Fahrzeug-Windkanal mit Laufband. Bei Gebäuden ist der Boden fest und der Wind nimmt mit der Höhe zu.</p>
+    <p>Stromlinien zeigen, welchen Weg die Luft in diesem Augenblick nimmt. Die Farbe gibt die Geschwindigkeit oder den Druck gegenüber der Umgebung an.</p>
+    <h3>Grenzen</h3>
+    <p>Die Bilder geben die Strömung in ihren Grundzügen richtig wieder. Für genaue Zahlen ist das Gitter zu grob: Teile, die kleiner als eine Zelle sind, verschwinden, und die sehr hohen Reynoldszahlen echter Autos oder Häuser lassen sich so nicht auflösen. Oben rechts steht deshalb neben der Reynoldszahl des echten Objekts auch die, mit der das Gitter tatsächlich rechnet. Feinere Stufen zeigen mehr Wirbel. Bei hohen Geschwindigkeiten ändert sich das Bild kaum, die Werte in der Legende wachsen aber mit.</p>
+    <button id="helpClose" class="primary" type="button">Schließen</button>
+  </div>
+</div>
+
+<div id="fatal" class="modal" hidden role="alertdialog" aria-modal="true">
+  <div class="card"><h2 id="fatalTitle"></h2><p id="fatalText"></p><button id="fatalBtn" class="primary" type="button" hidden>Seite neu laden</button></div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Windkanal – Strömung um 3D-Modelle im Browser (WebGPU)
+   Lattice-Boltzmann D3Q19 mit Smagorinsky-LES, alles auf der Grafikkarte.
+   Aufbau dieser Datei:
+     1. Hilfsfunktionen (Vektoren, Matrizen, Zahlenformat)
+     2. Beispielmodelle (werden hier erzeugt, keine Dateien nötig)
+     3. Eigene Modelle laden (STL binär/ASCII, OBJ)
+     4. Zerlegung in Würfelzellen (Voxelisierung)
+     5. Shader (WGSL): Strömungsrechnung, Stromlinien, Darstellung
+     6. Grafikkarte: Simulation und Darstellung
+     7. Kamera
+     8. Bedienung
+     9. Start
+   ===================================================================== */
+
+// ---------- 1. Hilfsfunktionen ----------
+const DEG = Math.PI / 180;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+
+const v3 = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  len: (a) => Math.hypot(a[0], a[1], a[2]),
+  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+};
+
+// 4x4-Matrizen spaltenweise (wie WGSL mat4x4<f32>)
+const m4 = {
+  mul(a, b) {
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+      let s = 0;
+      for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k];
+      o[c * 4 + r] = s;
+    }
+    return o;
+  },
+  // Tiefenbereich 0..1 (WebGPU)
+  perspective(fovy, aspect, near, far) {
+    const f = 1 / Math.tan(fovy / 2), o = new Float32Array(16);
+    o[0] = f / aspect; o[5] = f; o[10] = far / (near - far); o[11] = -1; o[14] = near * far / (near - far);
+    return o;
+  },
+  lookAt(eye, target, up) {
+    const z = v3.norm(v3.sub(eye, target)), x = v3.norm(v3.cross(up, z)), y = v3.cross(z, x);
+    return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0,
+      -v3.dot(x, eye), -v3.dot(y, eye), -v3.dot(z, eye), 1]);
+  },
+  // Spalten: ex, ey, ez (je mit Faktor s) und Verschiebung o
+  basis(ex, ey, ez, s, o) {
+    return new Float32Array([ex[0] * s, ex[1] * s, ex[2] * s, 0, ey[0] * s, ey[1] * s, ey[2] * s, 0,
+      ez[0] * s, ez[1] * s, ez[2] * s, 0, o[0], o[1], o[2], 1]);
+  },
+  point(m, p) {
+    const w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
+    return [(m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12]) / w,
+      (m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13]) / w,
+      (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) / w];
+  },
+};
+
+// Zahlen deutsch formatieren
+function fmt(x, d = 0) {
+  return Number(x).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function fmtBig(x) {
+  if (x >= 1e9) return fmt(x / 1e9, x >= 1e10 ? 0 : 1) + ' Mrd.';
+  if (x >= 1e6) return fmt(x / 1e6, x >= 1e7 ? 0 : 1) + ' Mio.';
+  if (x >= 1e4) return fmt(x / 1e3, 0) + ' Tsd.';
+  return fmt(x, 0);
+}
+function fmtLen(m) {
+  if (m >= 1) return fmt(m, m >= 10 ? 1 : 2) + ' m';
+  if (m >= 0.01) return fmt(m * 100, m >= 0.1 ? 0 : 1) + ' cm';
+  return fmt(m * 1000, 1) + ' mm';
+}
+
+// ---------- 2. Beispielmodelle ----------
+// Ein Modell besteht aus geschlossenen Teilen. Teile dürfen sich überlappen
+// (die Voxelisierung zählt Ein- und Austritte, nicht nur gerade/ungerade).
+// Koordinaten in Metern: x = vorn, y = links, z = oben.
+
+function partNew() { return { pos: [], col: [], idx: [] }; }
+function partVert(part, p, c) { part.pos.push(p[0], p[1], p[2]); part.col.push(c[0], c[1], c[2]); return part.pos.length / 3 - 1; }
+
+// Ringe zu einer geschlossenen Fläche verbinden.
+// rings[k] = { p: [Punkte] (ein Punkt = Pol), c: Farbe oder Funktion(Punkt) }
+function partLoft(part, rings) {
+  const ids = rings.map(r => r.p.map(pt => partVert(part, pt, typeof r.c === 'function' ? r.c(pt) : r.c)));
+  for (let k = 0; k + 1 < ids.length; k++) {
+    const A = ids[k], B = ids[k + 1];
+    if (A.length === 1 && B.length === 1) continue;
+    if (A.length === 1) { const m = B.length; for (let i = 0; i < m; i++) part.idx.push(A[0], B[i], B[(i + 1) % m]); }
+    else if (B.length === 1) { const m = A.length; for (let i = 0; i < m; i++) part.idx.push(A[i], B[0], A[(i + 1) % m]); }
+    else {
+      const m = A.length;
+      for (let i = 0; i < m; i++) { const j = (i + 1) % m; part.idx.push(A[i], B[i], B[j], A[i], B[j], A[j]); }
+    }
+  }
+  return part;
+}
+
+// ebene, konvexe Fläche mit eigenen Eckpunkten (scharfe Kanten)
+function partFace(part, pts, c) {
+  const ids = pts.map(p => partVert(part, p, c));
+  for (let i = 1; i + 1 < ids.length; i++) part.idx.push(ids[0], ids[i], ids[i + 1]);
+}
+function partBox(part, lo, hi, cFn) {
+  const [x0, y0, z0] = lo, [x1, y1, z1] = hi;
+  const f = (pts, n) => partFace(part, pts, typeof cFn === 'function' ? cFn(n) : cFn);
+  f([[x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]], 'unten');
+  f([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], 'oben');
+  f([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], 'rechts');
+  f([[x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]], 'links');
+  f([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], 'hinten');
+  f([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], 'vorn');
+}
+
+// Teil so drehen, dass die Normalen nach außen zeigen (Volumen positiv)
+function partOrient(part) {
+  const P = part.pos, I = part.idx;
+  let vol = 0;
+  for (let t = 0; t < I.length; t += 3) {
+    const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+    vol += P[a] * (P[b + 1] * P[c + 2] - P[b + 2] * P[c + 1])
+      - P[a + 1] * (P[b] * P[c + 2] - P[b + 2] * P[c])
+      + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c]);
+  }
+  if (vol < 0) for (let t = 0; t < I.length; t += 3) { const s = I[t + 1]; I[t + 1] = I[t + 2]; I[t + 2] = s; }
+  return Math.abs(vol) / 6;
+}
+
+function computeNormals(pos, idx) {
+  const n = new Float32Array(pos.length);
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+    const ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2];
+    const vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const k of [a, b, c]) { n[k] += nx; n[k + 1] += ny; n[k + 2] += nz; }
+  }
+  for (let i = 0; i < n.length; i += 3) {
+    const l = Math.hypot(n[i], n[i + 1], n[i + 2]) || 1;
+    n[i] /= l; n[i + 1] /= l; n[i + 2] /= l;
+  }
+  return n;
+}
+
+function meshFinish(parts) {
+  let nv = 0, ni = 0;
+  for (const p of parts) { partOrient(p); nv += p.pos.length / 3; ni += p.idx.length; }
+  const pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = new Uint32Array(ni);
+  let ov = 0, oi = 0;
+  for (const p of parts) {
+    pos.set(p.pos, ov * 3); col.set(p.col, ov * 3);
+    for (let k = 0; k < p.idx.length; k++) idx[oi + k] = p.idx[k] + ov;
+    ov += p.pos.length / 3; oi += p.idx.length;
+  }
+  return { pos, col, idx, nrm: computeNormals(pos, idx) };
+}
+
+// monotone kubische Interpolation durch Stützpunkte [[x, y], ...]
+function pchip(pts) {
+  const n = pts.length, xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const h = [], d = [], m = new Array(n);
+  for (let i = 0; i < n - 1; i++) { h[i] = xs[i + 1] - xs[i]; d[i] = (ys[i + 1] - ys[i]) / h[i]; }
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    if (d[i - 1] * d[i] <= 0) m[i] = 0;
+    else { const w1 = 2 * h[i] + h[i - 1], w2 = h[i] + 2 * h[i - 1]; m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i]); }
+  }
+  return x => {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[n - 1]) return ys[n - 1];
+    let i = 0; while (x > xs[i + 1]) i++;
+    const t = (x - xs[i]) / h[i], t2 = t * t, t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * h[i] * m[i] + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * h[i] * m[i + 1];
+  };
+}
+const spow = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+
+// Zylinder; Achse 'y' oder 'z'. Optional Felge (innerer Ring der Deckel in anderer Farbe).
+function partCylinder(part, c, axis, r0, r1, half, side, cap, rim, nSeg = 40) {
+  const P = (t, r, ph) => {
+    const a = r * Math.cos(ph), b = r * Math.sin(ph);
+    return axis === 'z' ? [c[0] + a, c[1] + b, c[2] + t] : [c[0] + a, c[1] + t, c[2] + b];
+  };
+  const ring = (t, r) => { const o = []; for (let i = 0; i < nSeg; i++) o.push(P(t, r, 2 * Math.PI * i / nSeg)); return o; };
+  const rings = [];
+  const capRings = (t, r) => {
+    const o = [{ p: [P(t, 0, 0)], c: rim ? rim.c : cap }];
+    if (rim) { o.push({ p: ring(t, r * rim.f), c: rim.c }, { p: ring(t, r * rim.f), c: cap }); }
+    o.push({ p: ring(t, r), c: cap });
+    return o;
+  };
+  const b = capRings(-half, r0), tp = capRings(half, r1).reverse();
+  rings.push(...b, { p: ring(-half, r0), c: side }, { p: ring(half, r1), c: side }, ...tp);
+  return partLoft(part, rings);
+}
+
+// Superellipsoid (abgerundeter Quader): Halbachsen a, Exponent e (klein = kantig)
+function partRoundBox(part, c, a, e, cFn, nEta = 28, nOm = 56) {
+  const rings = [];
+  for (let k = 0; k <= nEta; k++) {
+    const eta = -Math.PI / 2 + Math.PI * k / nEta;
+    const z = a[2] * spow(Math.sin(eta), e), r = spow(Math.cos(eta), e);
+    if (k === 0 || k === nEta) { rings.push({ p: [[c[0], c[1], c[2] + z]], c: cFn }); continue; }
+    const pts = [];
+    for (let i = 0; i < nOm; i++) {
+      const om = 2 * Math.PI * i / nOm;
+      pts.push([c[0] + a[0] * r * spow(Math.cos(om), e), c[1] + a[1] * r * spow(Math.sin(om), e), c[2] + z]);
+    }
+    rings.push({ p: pts, c: cFn });
+  }
+  return partLoft(part, rings);
+}
+
+const COL = {
+  lack: [0.86, 0.87, 0.89], glas: [0.20, 0.25, 0.31], reifen: [0.11, 0.11, 0.12], felge: [0.62, 0.64, 0.67],
+  hell: [0.84, 0.85, 0.87], fahrerhaus: [0.80, 0.84, 0.90], grau: [0.42, 0.44, 0.47],
+  wand: [0.86, 0.82, 0.74], dach: [0.60, 0.29, 0.23], ziegel: [0.56, 0.36, 0.31], beton: [0.72, 0.70, 0.67], russ: [0.22, 0.22, 0.24],
+  alu: [0.83, 0.85, 0.88],
+};
+
+function buildSphere() {
+  const part = partNew(), R = 0.5, nt = 40, np = 72, rings = [];
+  for (let k = 0; k <= nt; k++) {
+    const th = Math.PI * k / nt, x = -R * Math.cos(th), r = R * Math.sin(th);
+    if (k === 0 || k === nt) { rings.push({ p: [[x, 0, 0]], c: COL.alu }); continue; }
+    const pts = [];
+    for (let i = 0; i < np; i++) { const ph = 2 * Math.PI * i / np; pts.push([x, r * Math.cos(ph), r * Math.sin(ph)]); }
+    rings.push({ p: pts, c: COL.alu });
+  }
+  return [partLoft(part, rings)];
+}
+
+function buildCar() {
+  const L = 4.5, xr = -L / 2, xf = L / 2, rEnd = 0.3;
+  const zTop = pchip([[-2.25, 0.62], [-2.17, 0.92], [-1.95, 1.00], [-1.45, 1.04], [-1.05, 1.29], [-0.70, 1.41], [-0.20, 1.45],
+    [0.30, 1.42], [0.78, 1.11], [0.98, 1.02], [1.70, 0.90], [2.10, 0.78], [2.25, 0.62]]);
+  const zBot = pchip([[-2.25, 0.36], [-2.05, 0.25], [-1.60, 0.20], [1.60, 0.20], [2.05, 0.25], [2.25, 0.38]]);
+  const hw = pchip([[-2.25, 0.80], [-1.90, 0.88], [-1.20, 0.90], [1.20, 0.90], [1.90, 0.87], [2.25, 0.78]]);
+  const belt = 1.01, nS = 110, m = 72, rings = [];
+  for (let k = 0; k <= nS; k++) {
+    const x = xr + L * (0.5 - 0.5 * Math.cos(Math.PI * k / nS));
+    const zt = zTop(x), zb = zBot(x), zc = (zt + zb) / 2;
+    if (k === 0 || k === nS) { rings.push({ p: [[x, 0, zc]], c: COL.lack }); continue; }
+    const dEnd = Math.min(x - xr, xf - x);
+    const s = dEnd < rEnd ? Math.sqrt(Math.max(0, 1 - Math.pow((rEnd - dEnd) / rEnd, 2))) : 1;
+    const h = (zt - zb) / 2 * s, w = hw(x) * s, pts = [];
+    for (let i = 0; i < m; i++) {
+      const ph = 2 * Math.PI * i / m, z = zc + h * spow(Math.sin(ph), 0.5);
+      const tumble = zt > belt + 0.05 ? 1 - 0.22 * smooth(belt - 0.02, zt, z) : 1;
+      pts.push([x, w * tumble * spow(Math.cos(ph), 0.5), z]);
+    }
+    rings.push({ p: pts, c: (p) => (p[0] > -1.42 && p[0] < 0.96 && p[2] > belt + 0.04 && p[2] < zt - 0.06) ? COL.glas : COL.lack });
+  }
+  const parts = [partLoft(partNew(), rings)];
+  for (const wx of [-1.38, 1.38]) for (const wy of [-0.79, 0.79])
+    parts.push(partCylinder(partNew(), [wx, wy, 0.33], 'y', 0.335, 0.335, 0.11, COL.reifen, COL.reifen, { f: 0.62, c: COL.felge }, 36));
+  return parts;
+}
+
+function buildTruck() {
+  const cabC = (p) => (p[0] > 4.35 && p[2] > 2.35 && p[2] < 3.25) ? COL.glas : COL.fahrerhaus;
+  const parts = [
+    partRoundBox(partNew(), [3.75, 0, 2.05], [1.1, 1.25, 1.45], 0.28, cabC),
+    partRoundBox(partNew(), [-1.10, 0, 2.55], [3.7, 1.275, 1.45], 0.12, COL.hell),
+    partRoundBox(partNew(), [-0.55, 0, 0.85], [4.1, 0.5, 0.28], 0.2, COL.grau, 12, 28),
+  ];
+  for (const wx of [3.85, -2.35, -3.55]) for (const wy of [-1.05, 1.05])
+    parts.push(partCylinder(partNew(), [wx, wy, 0.5], 'y', 0.505, 0.505, 0.17, COL.reifen, COL.reifen, { f: 0.55, c: COL.felge }, 36));
+  return parts;
+}
+
+function buildWing() {
+  // NACA 2412, Tiefe 1 m, Spannweite 4 m, abgerundete Enden
+  const mC = 0.02, pC = 0.4, tC = 0.12, chord = 1, span = 4, rTip = 0.22;
+  const np = 60, loop = [];
+  const prof = (xc) => {
+    const yt = 5 * tC * (0.2969 * Math.sqrt(xc) - 0.1260 * xc - 0.3516 * xc * xc + 0.2843 * xc ** 3 - 0.1036 * xc ** 4);
+    let yc, dy;
+    if (xc < pC) { yc = mC / (pC * pC) * (2 * pC * xc - xc * xc); dy = 2 * mC / (pC * pC) * (pC - xc); }
+    else { yc = mC / ((1 - pC) ** 2) * ((1 - 2 * pC) + 2 * pC * xc - xc * xc); dy = 2 * mC / ((1 - pC) ** 2) * (pC - xc); }
+    const th = Math.atan(dy);
+    return { up: [xc - yt * Math.sin(th), yc + yt * Math.cos(th)], lo: [xc + yt * Math.sin(th), yc - yt * Math.cos(th)] };
+  };
+  const xs = []; for (let k = 0; k < np; k++) xs.push(0.5 - 0.5 * Math.cos(Math.PI * k / (np - 1)));
+  loop.push([1, 0]);                                              // Hinterkante
+  for (let k = np - 2; k >= 1; k--) loop.push(prof(xs[k]).up);   // Oberseite nach vorn
+  loop.push([0, 0]);                                              // Nase
+  for (let k = 1; k <= np - 2; k++) loop.push(prof(xs[k]).lo);   // Unterseite nach hinten
+  const nSpan = 70, rings = [];
+  for (let k = 0; k <= nSpan; k++) {
+    const y = -span / 2 + span * (0.5 - 0.5 * Math.cos(Math.PI * k / nSpan));
+    if (k === 0 || k === nSpan) { rings.push({ p: [[0, y, 0.004]], c: COL.alu }); continue; }
+    const dEnd = span / 2 - Math.abs(y);
+    const s = dEnd < rTip ? Math.sqrt(Math.max(0, 1 - Math.pow((rTip - dEnd) / rTip, 2))) : 1;
+    rings.push({ p: loop.map(([xc, zc]) => [chord * (0.25 - xc) * (0.35 + 0.65 * s), y, chord * zc * s]), c: COL.alu });
+  }
+  return [partLoft(partNew(), rings)];
+}
+
+function buildHouse() {
+  const part = partNew(), wl = 5, wb = 4, hw = 6, hr = 9;
+  const pent = (x) => [[x, -wb, 0], [x, wb, 0], [x, wb, hw], [x, 0, hr], [x, -wb, hw]];
+  const A = pent(-wl), B = pent(wl);
+  partFace(part, [...A].reverse(), COL.wand);
+  partFace(part, B, COL.wand);
+  for (let i = 0; i < 5; i++) {
+    const j = (i + 1) % 5;
+    const roof = (i === 2 || i === 3);
+    partFace(part, [A[i], A[j], B[j], B[i]], roof ? COL.dach : COL.wand);
+  }
+  const ch = partNew();
+  partBox(ch, [1.9, 1.1, 6.6], [2.8, 2.0, 10.2], (n) => n === 'oben' ? COL.russ : COL.ziegel);
+  return [part, ch];
+}
+
+function buildChimney() {
+  return [partCylinder(partNew(), [0, 0, 6], 'z', 1.0, 1.0, 6, COL.beton, COL.russ, null, 56)];
+}
+
+// Liste der Beispielmodelle
+// ground: 'slip' = Boden ohne Reibung (Fahrzeug, wie Laufband), 'fixed' = fester Boden mit Windprofil (Gebäude), null = schwebt frei
+const EXAMPLES = [
+  { id: 'pkw', name: 'Pkw', info: 'Mittelklassewagen, 4,5 m lang', ground: 'slip', ref: 4.5, refName: 'Länge', speed: 30, pitch: 0, build: buildCar, icon: 'car' },
+  { id: 'lkw', name: 'Lkw', info: 'Lastwagen mit Kofferaufbau, 9,6 m lang', ground: 'slip', ref: 9.6, refName: 'Länge', speed: 25, pitch: 0, build: buildTruck, icon: 'truck' },
+  { id: 'fluegel', name: 'Tragflügel', info: 'Profil NACA 2412, 1 m tief, 4 m breit', ground: null, ref: 1, refName: 'Profiltiefe', speed: 30, pitch: 8, build: buildWing, icon: 'wing' },
+  { id: 'kugel', name: 'Kugel', info: 'Durchmesser 1 m', ground: null, ref: 1, refName: 'Durchmesser', speed: 10, pitch: 0, build: buildSphere, icon: 'sphere' },
+  { id: 'haus', name: 'Haus', info: 'Satteldach, 10 × 8 m, 9 m hoch', ground: 'fixed', ref: 9, refName: 'Höhe', speed: 10, pitch: 0, build: buildHouse, icon: 'house' },
+  { id: 'schornstein', name: 'Schornstein', info: 'Durchmesser 2 m, 12 m hoch', ground: 'fixed', ref: 2, refName: 'Durchmesser', speed: 10, pitch: 0, build: buildChimney, icon: 'chimney' },
+];
+
+function meshBounds(pos) {
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < pos.length; i += 3) for (let k = 0; k < 3; k++) {
+    const v = pos[i + k]; if (v < lo[k]) lo[k] = v; if (v > hi[k]) hi[k] = v;
+  }
+  return { lo, hi };
+}
+
+// Beispiel bauen: Netz zusammensetzen, schwebende Modelle mittig, stehende auf z = 0
+function makeExample(ex) {
+  const mesh = meshFinish(ex.build());
+  const b = meshBounds(mesh.pos);
+  const sh = [-(b.lo[0] + b.hi[0]) / 2, -(b.lo[1] + b.hi[1]) / 2, ex.ground ? -b.lo[2] : -(b.lo[2] + b.hi[2]) / 2];
+  for (let i = 0; i < mesh.pos.length; i += 3) { mesh.pos[i] += sh[0]; mesh.pos[i + 1] += sh[1]; mesh.pos[i + 2] += sh[2]; }
+  return { meta: ex, mesh, bounds: meshBounds(mesh.pos) };
+}
+
+// ---------- 3. Eigene Modelle laden (STL, OBJ) ----------
+// Ergebnis: Float32Array mit 9 Werten je Dreieck (ohne Indizes)
+
+function parseSTL(buf) {
+  const dv = new DataView(buf);
+  if (buf.byteLength >= 84) {
+    const n = dv.getUint32(80, true);
+    if (84 + 50 * n === buf.byteLength && n > 0) {
+      const tri = new Float32Array(n * 9);
+      let o = 84;
+      for (let t = 0; t < n; t++) {
+        o += 12;
+        for (let k = 0; k < 9; k++) tri[t * 9 + k] = dv.getFloat32(o + 4 * k, true);
+        o += 38;
+      }
+      return tri;
+    }
+  }
+  const text = new TextDecoder().decode(buf);
+  if (!/facet/i.test(text)) throw new Error('Die Datei sieht nicht wie eine STL-Datei aus.');
+  const re = /vertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/g;
+  const v = [];
+  let m;
+  while ((m = re.exec(text))) v.push(+m[1], +m[2], +m[3]);
+  const n = Math.floor(v.length / 9);
+  return new Float32Array(v.slice(0, n * 9));
+}
+
+function parseOBJ(text) {
+  const verts = [], tri = [];
+  for (const line of text.split(/\r?\n/)) {
+    const s = line.trim();
+    if (s.startsWith('v ')) {
+      const p = s.split(/\s+/); verts.push([+p[1], +p[2], +p[3]]);
+    } else if (s.startsWith('f ')) {
+      const ids = s.split(/\s+/).slice(1).map(t => {
+        const i = parseInt(t.split('/')[0], 10);
+        return i < 0 ? verts.length + i : i - 1;
+      });
+      for (let k = 1; k + 1 < ids.length; k++) {
+        const a = verts[ids[0]], b = verts[ids[k]], c = verts[ids[k + 1]];
+        if (a && b && c) tri.push(...a, ...b, ...c);
+      }
+    }
+  }
+  if (!tri.length) throw new Error('In der OBJ-Datei wurden keine Flächen gefunden.');
+  return new Float32Array(tri);
+}
+
+// fehlerhafte Dreiecke entfernen (NaN, Fläche null)
+function cleanTriangles(tri) {
+  const out = new Float32Array(tri.length);
+  let n = 0;
+  for (let t = 0; t < tri.length; t += 9) {
+    let ok = true;
+    for (let k = 0; k < 9; k++) if (!Number.isFinite(tri[t + k])) { ok = false; break; }
+    if (!ok) continue;
+    const ux = tri[t + 3] - tri[t], uy = tri[t + 4] - tri[t + 1], uz = tri[t + 5] - tri[t + 2];
+    const vx = tri[t + 6] - tri[t], vy = tri[t + 7] - tri[t + 1], vz = tri[t + 8] - tri[t + 2];
+    const a = Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+    if (!(a > 0)) continue;
+    out.set(tri.subarray(t, t + 9), n); n += 9;
+  }
+  return out.slice(0, n);
+}
+
+// Ausrichtung und Größe: upY = Datei hat y nach oben; turn = Vierteldrehungen um die Hochachse
+function placeTriangles(raw, opt) {
+  const n = raw.length, tri = new Float32Array(n);
+  const c = Math.cos(opt.turn * Math.PI / 2), s = Math.sin(opt.turn * Math.PI / 2);
+  for (let i = 0; i < n; i += 3) {
+    let x = raw[i], y = raw[i + 1], z = raw[i + 2];
+    if (opt.upY) { const t = y; y = -z; z = t; }
+    tri[i] = c * x - s * y; tri[i + 1] = s * x + c * y; tri[i + 2] = z;
+  }
+  const b = meshBounds(tri);
+  const ext = Math.max(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1], b.hi[2] - b.lo[2]) || 1;
+  const k = opt.size / ext;
+  const cx = (b.lo[0] + b.hi[0]) / 2, cy = (b.lo[1] + b.hi[1]) / 2;
+  const cz = opt.ground ? b.lo[2] : (b.lo[2] + b.hi[2]) / 2;
+  for (let i = 0; i < n; i += 3) { tri[i] = (tri[i] - cx) * k; tri[i + 1] = (tri[i + 1] - cy) * k; tri[i + 2] = (tri[i + 2] - cz) * k; }
+  return tri;
+}
+
+function rawExtent(raw) {
+  const b = meshBounds(raw);
+  return Math.max(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1], b.hi[2] - b.lo[2]);
+}
+
+// Dreiecksliste -> Netz zum Zeichnen; Kanten über 35° bleiben scharf
+function meshFromTriangles(tri, color) {
+  const nt = tri.length / 9, pos = tri, col = new Float32Array(tri.length), idx = new Uint32Array(nt * 3);
+  for (let i = 0; i < nt * 3; i++) { idx[i] = i; col[i * 3] = color[0]; col[i * 3 + 1] = color[1]; col[i * 3 + 2] = color[2]; }
+  const fn = new Float32Array(nt * 3);
+  for (let t = 0; t < nt; t++) {
+    const o = t * 9;
+    const ux = tri[o + 3] - tri[o], uy = tri[o + 4] - tri[o + 1], uz = tri[o + 5] - tri[o + 2];
+    const vx = tri[o + 6] - tri[o], vy = tri[o + 7] - tri[o + 1], vz = tri[o + 8] - tri[o + 2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz) || 1; fn[t * 3] = nx / l; fn[t * 3 + 1] = ny / l; fn[t * 3 + 2] = nz / l;
+  }
+  const nrm = new Float32Array(tri.length);
+  if (nt > 600000) {
+    for (let i = 0; i < nt * 3; i++) { const t = Math.floor(i / 3); nrm.set(fn.subarray(t * 3, t * 3 + 3), i * 3); }
+    return { pos, col, idx, nrm };
+  }
+  const b = meshBounds(tri), q = 1e5 / (Math.max(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1], b.hi[2] - b.lo[2]) || 1);
+  const map = new Map(), key = new Array(nt * 3);
+  for (let i = 0; i < nt * 3; i++) {
+    const k = Math.round(tri[i * 3] * q) + ',' + Math.round(tri[i * 3 + 1] * q) + ',' + Math.round(tri[i * 3 + 2] * q);
+    key[i] = k;
+    let l = map.get(k); if (!l) { l = []; map.set(k, l); } l.push(Math.floor(i / 3));
+  }
+  const cosLim = Math.cos(35 * DEG);
+  for (let i = 0; i < nt * 3; i++) {
+    const t = Math.floor(i / 3), list = map.get(key[i]);
+    let sx = 0, sy = 0, sz = 0;
+    for (const u of list) {
+      const d = fn[u * 3] * fn[t * 3] + fn[u * 3 + 1] * fn[t * 3 + 1] + fn[u * 3 + 2] * fn[t * 3 + 2];
+      if (d >= cosLim) { sx += fn[u * 3]; sy += fn[u * 3 + 1]; sz += fn[u * 3 + 2]; }
+    }
+    const l = Math.hypot(sx, sy, sz) || 1;
+    nrm[i * 3] = sx / l; nrm[i * 3 + 1] = sy / l; nrm[i * 3 + 2] = sz / l;
+  }
+  return { pos, col, idx, nrm };
+}
+
+// Beispiel als STL-Datei (binär) – zum Ausprobieren des Ladens
+function meshToSTL(mesh) {
+  const nt = mesh.idx.length / 3, buf = new ArrayBuffer(84 + 50 * nt), dv = new DataView(buf);
+  dv.setUint32(80, nt, true);
+  let o = 84;
+  for (let t = 0; t < nt; t++) {
+    o += 12;
+    for (let k = 0; k < 3; k++) {
+      const v = mesh.idx[t * 3 + k] * 3;
+      for (let a = 0; a < 3; a++) { dv.setFloat32(o, mesh.pos[v + a], true); o += 4; }
+    }
+    o += 2;
+  }
+  return buf;
+}
+
+// ---------- 4. Zerlegung in Würfelzellen (Voxelisierung) ----------
+// Eingabe: Dreiecke in Gitterkoordinaten (Zellmitte i liegt bei Koordinate i).
+// Je Achse werden Strahlen durch die Zellmitten geschickt und Ein-/Austritte gezählt
+// (Umlaufzahl). Eine Zelle ist fest, wenn die Mehrheit der gültigen Richtungen "innen" sagt.
+// Offene Netze (z. B. einzelne Flächen) werden zusätzlich als dünne Wand eingetragen.
+
+function voxelize(tri, nx, ny, nz) {
+  const N = nx * ny * nz, dims = [nx, ny, nz];
+  const votes = new Uint8Array(N), surf = new Uint8Array(N);
+  const valid = [];
+  let hitCols = 0, badCols = 0;
+  const AX = [{ a: 2, u: 0, v: 1 }, { a: 0, u: 1, v: 2 }, { a: 1, u: 2, v: 0 }];
+  const EPS_U = 1.234567e-4, EPS_V = 2.345678e-4;
+  let surfCap = 1 << 16, surfList = new Int32Array(surfCap), nSurf = 0;
+  for (const ax of AX) {
+    const nu = dims[ax.u], nv = dims[ax.v], na = dims[ax.a], ncol = nu * nv;
+    let cap = 1 << 16, col = new Int32Array(cap), dep = new Float32Array(cap), sg = new Int8Array(cap), nh = 0;
+    for (let t = 0; t < tri.length; t += 9) {
+      const a0 = tri[t + ax.u], b0 = tri[t + ax.v], c0 = tri[t + ax.a];
+      const a1 = tri[t + 3 + ax.u], b1 = tri[t + 3 + ax.v], c1 = tri[t + 3 + ax.a];
+      const a2 = tri[t + 6 + ax.u], b2 = tri[t + 6 + ax.v], c2 = tri[t + 6 + ax.a];
+      const d = (a1 - a0) * (b2 - b0) - (a2 - a0) * (b1 - b0);
+      if (Math.abs(d) < 1e-12) continue;
+      const iu0 = Math.max(0, Math.ceil(Math.min(a0, a1, a2) - EPS_U)), iu1 = Math.min(nu - 1, Math.floor(Math.max(a0, a1, a2) - EPS_U));
+      const iv0 = Math.max(0, Math.ceil(Math.min(b0, b1, b2) - EPS_V)), iv1 = Math.min(nv - 1, Math.floor(Math.max(b0, b1, b2) - EPS_V));
+      if (iu0 > iu1 || iv0 > iv1) continue;
+      const s = d < 0 ? 1 : -1, inv = 1 / d;
+      for (let iv = iv0; iv <= iv1; iv++) {
+        const pv = iv + EPS_V;
+        for (let iu = iu0; iu <= iu1; iu++) {
+          const pu = iu + EPS_U;
+          const w1 = ((pu - a0) * (b2 - b0) - (a2 - a0) * (pv - b0)) * inv;
+          const w2 = ((a1 - a0) * (pv - b0) - (pu - a0) * (b1 - b0)) * inv;
+          const w0 = 1 - w1 - w2;
+          if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+          if (nh === cap) {
+            cap *= 2;
+            const c2a = new Int32Array(cap); c2a.set(col); col = c2a;
+            const d2a = new Float32Array(cap); d2a.set(dep); dep = d2a;
+            const s2a = new Int8Array(cap); s2a.set(sg); sg = s2a;
+          }
+          col[nh] = iu + nu * iv; dep[nh] = w0 * c0 + w1 * c1 + w2 * c2; sg[nh] = s; nh++;
+        }
+      }
+    }
+    // nach Spalten sortieren (Zählsortierung), dann je Spalte nach Tiefe
+    const cnt = new Int32Array(ncol + 1);
+    for (let h = 0; h < nh; h++) cnt[col[h] + 1]++;
+    for (let c = 0; c < ncol; c++) cnt[c + 1] += cnt[c];
+    const ord = new Int32Array(nh), fill = cnt.slice(0, ncol);
+    for (let h = 0; h < nh; h++) ord[fill[col[h]]++] = h;
+    const colValid = new Uint8Array(ncol).fill(1);
+    const stride = [1, nx, nx * ny];
+    const su = stride[ax.u], sv = stride[ax.v], sa = stride[ax.a];
+    const tmpD = [], tmpS = [];
+    for (let c = 0; c < ncol; c++) {
+      const h0 = cnt[c], h1 = cnt[c + 1];
+      if (h1 === h0) continue;
+      hitCols++;
+      tmpD.length = 0; tmpS.length = 0;
+      for (let h = h0; h < h1; h++) { tmpD.push(dep[ord[h]]); tmpS.push(sg[ord[h]]); }
+      // Einfügesortierung (wenige Treffer je Spalte)
+      for (let i = 1; i < tmpD.length; i++) {
+        const dv = tmpD[i], sv2 = tmpS[i]; let j = i - 1;
+        while (j >= 0 && tmpD[j] > dv) { tmpD[j + 1] = tmpD[j]; tmpS[j + 1] = tmpS[j]; j--; }
+        tmpD[j + 1] = dv; tmpS[j + 1] = sv2;
+      }
+      const iu = c % nu, iv = (c - iu) / nu, base = iu * su + iv * sv;
+      for (const dd of tmpD) {
+        const k = Math.round(dd);
+        if (k < 0 || k >= na) continue;
+        if (nSurf === surfCap) { surfCap *= 2; const t2 = new Int32Array(surfCap); t2.set(surfList); surfList = t2; }
+        surfList[nSurf++] = base + k * sa;
+      }
+      let w = 0;
+      for (const s of tmpS) w += s;
+      if (w !== 0) { colValid[c] = 0; badCols++; continue; }
+      w = 0;
+      for (let j = 0; j + 1 < tmpD.length; j++) {
+        w += tmpS[j];
+        if (w === 0) continue;
+        const k0 = Math.max(0, Math.floor(tmpD[j]) + 1), k1 = Math.min(na - 1, Math.ceil(tmpD[j + 1]) - 1);
+        for (let k = k0; k <= k1; k++) votes[base + k * sa]++;
+      }
+    }
+    valid.push(colValid);
+  }
+  // Offenes Netz? Dann Trefferzellen als Wand eintragen
+  const openMesh = hitCols > 0 && badCols / hitCols > 0.02;
+  if (openMesh) for (let i = 0; i < nSurf; i++) surf[surfList[i]] = 1;
+  const [vz, vx, vy] = valid;
+  const solid = new Uint8Array(N);
+  let count = 0;
+  for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) {
+    const row = nx * (y + ny * z);
+    for (let x = 0; x < nx; x++) {
+      const i = row + x;
+      const known = vz[x + nx * y] + vx[y + ny * z] + vy[z + nz * x];
+      if ((known > 0 && votes[i] * 2 > known) || surf[i]) { solid[i] = 1; count++; }
+    }
+  }
+  return { solid, count, openMesh };
+}
+
+// Gitterrichtungen D3Q19 (Reihenfolge wie in den Shadern)
+const D3Q19 = (() => {
+  const C = [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1],
+    [1, 1, 0], [-1, -1, 0], [1, -1, 0], [-1, 1, 0], [1, 0, 1], [-1, 0, -1], [1, 0, -1], [-1, 0, 1],
+    [0, 1, 1], [0, -1, -1], [0, 1, -1], [0, -1, 1]];
+  const W = C.map(c => { const s = Math.abs(c[0]) + Math.abs(c[1]) + Math.abs(c[2]); return s === 0 ? 1 / 3 : s === 1 ? 1 / 18 : 1 / 36; });
+  const OPP = C.map(c => C.findIndex(d => d[0] === -c[0] && d[1] === -c[1] && d[2] === -c[2]));
+  return { C, W, OPP };
+})();
+const SOLID_BIT = 1 << 20;
+
+// Für jede Fluidzelle merken, aus welchen Richtungen eine feste Zelle angrenzt
+function buildInfo(solid, nx, ny, nz) {
+  const info = new Uint32Array(solid.length);
+  const C = D3Q19.C;
+  for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    const i = x + nx * (y + ny * z);
+    if (!solid[i]) continue;
+    info[i] |= SOLID_BIT;
+    for (let d = 1; d < 19; d++) {
+      const X = x + C[d][0], Y = y + C[d][1], Z = z + C[d][2];
+      if (X < 0 || Y < 0 || Z < 0 || X >= nx || Y >= ny || Z >= nz) continue;
+      const j = X + nx * (Y + ny * Z);
+      if (!solid[j]) info[j] |= (1 << d);
+    }
+  }
+  return info;
+}
+
+// ---------- 5. Shader (WGSL) ----------
+// Die Strömungsrechnung wird als Text erzeugt: alle 19 Richtungen ausgeschrieben.
+
+function wf(x) { // Zahl als WGSL-Gleitkommazahl
+  let s = Number(x).toPrecision(9);
+  if (!/[.eE]/.test(s)) s += '.0';
+  return s;
+}
+function cuExpr(c, u) { // c·u als Ausdruck
+  const t = [];
+  ['x', 'y', 'z'].forEach((a, k) => { if (c[k] === 1) t.push(`${u}.${a}`); else if (c[k] === -1) t.push(`-${u}.${a}`); });
+  return t.length ? t.join(' + ').replace(/\+ -/g, '- ') : '0.0';
+}
+function sumExpr(coef) { // Summe über f_i mit ganzzahligen Faktoren
+  const t = [];
+  for (let i = 0; i < 19; i++) {
+    const k = coef(D3Q19.C[i]);
+    if (k === 0) continue;
+    t.push((k === 1 ? '' : k === -1 ? '-' : `${wf(k)} * `) + `f${i}`);
+  }
+  return t.length ? t.join(' + ').replace(/\+ -/g, '- ') : '0.0';
+}
+function cpcExpr(c) { // c·Π·c mit Π = Nichtgleichgewichts-Spannungen
+  const t = [];
+  if (c[0]) t.push('nxx'); if (c[1]) t.push('nyy'); if (c[2]) t.push('nzz');
+  const o = (p, q, n) => { const k = p * q; if (k === 1) t.push(`2.0 * ${n}`); else if (k === -1) t.push(`-2.0 * ${n}`); };
+  o(c[0], c[1], 'nxy'); o(c[0], c[2], 'nxz'); o(c[1], c[2], 'nyz');
+  return t.length ? t.join(' + ').replace(/\+ -/g, '- ') : '0.0';
+}
+
+const WGSL_PRM = `
+struct Prm { uin: vec4<f32>, wall: vec4<f32>, coll: vec4<f32>, flags: vec4<u32>, dims: vec4<u32>, spg: vec4<f32> };
+fn eqf(w: f32, rho: f32, cu: f32, uu: f32) -> f32 { return w * rho * (1.0 + 3.0 * cu + 4.5 * cu * cu - 1.5 * uu); }
+// Windprofil über festem Boden (Potenzgesetz 1/7), delta = Profilhöhe in Zellen
+fn prof(z: i32, delta: f32) -> f32 {
+  if (delta <= 0.0) { return 1.0; }
+  return min(1.0, pow(max((f32(z) + 0.5) / delta, 1e-4), 0.142857143));
+}
+`;
+
+// Ein Zeitschritt: Strömen (Ziehen von den Nachbarn) + Stoß (regularisiert, Smagorinsky)
+// Stoßmodell: 'rr' = rekursiv regularisiert (Standard), 'reg' = regularisiert, 'bgk', 'trt'
+let COLLISION = 'rr';
+// Breite der Schwammzone in Zellen
+function spongeW(n) { return Math.max(3, Math.min(10, Math.round(n * 0.07))); }
+
+// Versatz einer Nachbarzelle im Speicher (i32-Ausdruck mit NX, NXY) und Index der Quelle
+function offExpr(cx, cy, cz) {
+  const t = [];
+  if (cx) t.push(String(cx));
+  if (cy) t.push(cy === 1 ? 'NX' : '-NX');
+  if (cz) t.push(cz === 1 ? 'NXY' : '-NXY');
+  return t.length ? '(' + t.join(' + ').replace(/\+ -/g, '- ') + ')' : '0';
+}
+function srcIdx(cx, cy, cz) { return `u32(ii - ${offExpr(cx, cy, cz)})`; }
+
+// Die Gittermaße kommen aus dem Uniform-Puffer: die Shader werden nur einmal übersetzt.
+function wgslStep() {
+  const { C, W, OPP } = D3Q19;
+  let s = WGSL_PRM + `
+@group(0) @binding(0) var<uniform> prm: Prm;
+@group(0) @binding(1) var<storage, read> fs: array<f32>;
+@group(0) @binding(2) var<storage, read_write> fd: array<f32>;
+@group(0) @binding(3) var<storage, read> info: array<u32>;
+@group(0) @binding(4) var<storage, read_write> mac: array<vec2<u32>>;
+@compute @workgroup_size(64, 1, 1)
+fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+  let NX = i32(prm.dims.x);
+  let NY = i32(prm.dims.y);
+  let NZ = i32(prm.dims.z);
+  let NXY = NX * NY;
+  let N = prm.dims.w;
+  let x = i32(g.x);
+  if (x >= NX) { return; }
+  let y = i32(g.y);
+  let z = i32(g.z);
+  let ii = x + NX * y + NXY * z;
+  let idx = u32(ii);
+  let inf = info[idx];
+  if ((inf & ${SOLID_BIT}u) != 0u) { mac[idx] = vec2<u32>(0u, 0u); return; }
+  let ui = prm.uin.xyz * prof(z, prm.wall.w);
+  let uii = dot(ui, ui);
+  let floorT = prm.flags.x;
+  let ground = floorT != 0u;
+  let f0 = fs[idx];
+`;
+  // Ränder: vorn Einlass (Wind), seitlich/oben/unten Fernfeld (Wind, Umgebungsdruck),
+  // hinten Auslass (Verteilungen aus der Nachbarzelle übernehmen), Boden: Haftbedingung oder glatt
+  for (let i = 1; i < 19; i++) {
+    const c = C[i], w = wf(W[i]);
+    const bb = `fs[${OPP[i]}u * N + idx]`;
+    const far = `eqf(${w}, 1.0, ${cuExpr(c, 'ui')}, uii)`;
+    s += `  var f${i}: f32;\n  if ((inf & ${1 << i}u) != 0u) { f${i} = ${bb}; }\n`;
+    if (c[0] === 1) s += `  else if (x == 0) { f${i} = ${far}; }\n`;
+    if (c[2] === 1) {
+      // Boden: 1 = Haftbedingung (fest), 2 = glatt (Spiegelung), 0 = kein Boden (Fernfeld)
+      const j = C.findIndex(d => d[0] === c[0] && d[1] === c[1] && d[2] === -1);
+      const okL = [c[0] === 1 ? 'x > 0' : c[0] === -1 ? 'x < NX - 1' : '', c[1] === 1 ? 'y > 0' : c[1] === -1 ? 'y < NY - 1' : ''].filter(Boolean);
+      const get = `f${i} = fs[${j}u * N + ${srcIdx(c[0], c[1], 0)}];`;
+      const slip = okL.length ? `if (${okL.join(' && ')}) { ${get} } else { f${i} = ${far}; }` : get;
+      s += `  else if (z == 0) { if (floorT == 1u) { f${i} = ${bb}; } else if (floorT == 2u) { ${slip} } else { f${i} = ${far}; } }\n`;
+    }
+    if (c[0] === -1) {
+      const okLat = [c[1] === 1 ? 'y > 0' : c[1] === -1 ? 'y < NY - 1' : '', c[2] === 1 ? 'z > 0' : c[2] === -1 ? 'z < NZ - 1' : ''].filter(Boolean);
+      const get = `f${i} = fs[${i}u * N + ${srcIdx(0, c[1], c[2])}];`;
+      s += `  else if (x == NX - 1) { ${okLat.length ? `if (${okLat.join(' && ')}) { ${get} } else { f${i} = ${far}; }` : get} }\n`;
+    }
+    const side = [];
+    if (c[1] === 1) side.push('y == 0');
+    if (c[1] === -1) side.push('y == NY - 1');
+    if (c[2] === -1) side.push('z == NZ - 1');
+    if (side.length) s += `  else if (${side.join(' || ')}) { f${i} = ${far}; }\n`;
+    s += `  else { f${i} = fs[${i}u * N + ${srcIdx(c[0], c[1], c[2])}]; }\n`;
+  }
+  s += `
+  let rho = ${Array.from({ length: 19 }, (_, i) => 'f' + i).join(' + ')};
+  let jx = ${sumExpr(c => c[0])};
+  let jy = ${sumExpr(c => c[1])};
+  let jz = ${sumExpr(c => c[2])};
+  let pxx = ${sumExpr(c => c[0] * c[0])};
+  let pyy = ${sumExpr(c => c[1] * c[1])};
+  let pzz = ${sumExpr(c => c[2] * c[2])};
+  let pxy = ${sumExpr(c => c[0] * c[1])};
+  let pxz = ${sumExpr(c => c[0] * c[2])};
+  let pyz = ${sumExpr(c => c[1] * c[2])};
+  let rr = clamp(rho, 0.3, 3.0);
+  var u = vec3<f32>(jx, jy, jz) / rr;
+  let um = length(u);
+  if (um > 0.35) { u = u * (0.35 / um); }
+  // Schwammzone an Auslass, Seiten und Decke (dämpft Druckwellen und Rückströmung)
+  let dOut = f32(NX - 1 - x);
+  var dSide = f32(min(min(y, NY - 1 - y), NZ - 1 - z));
+  if (!ground) { dSide = min(dSide, f32(z)); }
+  let sa = max(0.0, 1.0 - dOut / prm.spg.x);
+  let sb = max(0.0, 1.0 - dSide / prm.spg.y);
+  let spg = prm.coll.w * max(sa * sa, sb * sb);
+  let rs = mix(rr, 1.0, spg);
+  let uu = dot(u, u);
+  let nxx = pxx - rr * (u.x * u.x + ${wf(1 / 3)});
+  let nyy = pyy - rr * (u.y * u.y + ${wf(1 / 3)});
+  let nzz = pzz - rr * (u.z * u.z + ${wf(1 / 3)});
+  let nxy = pxy - rr * u.x * u.y;
+  let nxz = pxz - rr * u.x * u.z;
+  let nyz = pyz - rr * u.y * u.z;
+  let q = sqrt(nxx * nxx + nyy * nyy + nzz * nzz + 2.0 * (nxy * nxy + nxz * nxz + nyz * nyz));
+  let t0 = prm.coll.x;
+  let tau = 0.5 * (t0 + sqrt(t0 * t0 + prm.coll.y * q / rr));
+  let om1 = (1.0 - 1.0 / tau) * (1.0 - spg);
+  let tr3 = (nxx + nyy + nzz) * ${wf(1 / 3)};
+`;
+  if (COLLISION === 'rr') {
+    // rekursiv regularisiert: zusätzlich Hermite-Terme 3. Ordnung (auf D3Q19 darstellbar)
+    s += `  let o1 = om1;
+  let a_xxy = rs * u.x * u.x * u.y + o1 * (2.0 * u.x * nxy + u.y * nxx);
+  let a_xxz = rs * u.x * u.x * u.z + o1 * (2.0 * u.x * nxz + u.z * nxx);
+  let a_xyy = rs * u.x * u.y * u.y + o1 * (2.0 * u.y * nxy + u.x * nyy);
+  let a_xzz = rs * u.x * u.z * u.z + o1 * (2.0 * u.z * nxz + u.x * nzz);
+  let a_yyz = rs * u.y * u.y * u.z + o1 * (2.0 * u.y * nyz + u.z * nyy);
+  let a_yzz = rs * u.y * u.z * u.z + o1 * (2.0 * u.z * nyz + u.y * nzz);
+`;
+    for (let i = 0; i < 19; i++) {
+      const c = C[i];
+      const h = (a, b) => a * (b * b - 1 / 3); // H_bba = c_a (c_b² − 1/3)
+      const terms = [[h(c[1], c[0]), 'a_xxy'], [h(c[2], c[0]), 'a_xxz'], [h(c[0], c[1]), 'a_xyy'], [h(c[0], c[2]), 'a_xzz'], [h(c[2], c[1]), 'a_yyz'], [h(c[1], c[2]), 'a_yzz']]
+        .filter(([k]) => Math.abs(k) > 1e-12).map(([k, n]) => `${wf(k)} * ${n}`);
+      const t3 = terms.length ? ` + ${wf(W[i] * 13.5)} * (${terms.join(' + ')})` : '';
+      s += `  fd[${i}u * N + idx] = eqf(${wf(W[i])}, rs, ${cuExpr(c, 'u')}, uu) + om1 * ${wf(W[i] * 4.5)} * (${cpcExpr(c)} - tr3)${t3};\n`;
+    }
+  } else if (COLLISION === 'bgk') {
+    s += `  let omb = 1.0 / tau;\n`;
+    for (let i = 0; i < 19; i++) {
+      const c = C[i], w = wf(W[i]), cu = cuExpr(c, 'u');
+      s += `  fd[${i}u * N + idx] = mix(f${i} - omb * (f${i} - eqf(${w}, rr, ${cu}, uu)), eqf(${w}, rs, ${cu}, uu), spg);\n`;
+    }
+  } else if (COLLISION === 'trt') {
+    // Zwei-Relaxationszeiten-Stoß (TRT, Λ = 1/4)
+    s += `  let omp = 1.0 / tau;\n  let omm = 1.0 / (0.5 + 0.25 / max(tau - 0.5, 1e-6));\n`;
+    s += `  let e0 = eqf(${wf(W[0])}, rr, 0.0, uu);\n  fd[idx] = mix(f0 - omp * (f0 - e0), eqf(${wf(W[0])}, rs, 0.0, uu), spg);\n`;
+    for (let i = 1; i < 19; i += 2) {
+      const j = OPP[i], c = C[i], w = wf(W[i]), cu = cuExpr(c, 'u');
+      s += `  { let cu = ${cu}; let ei = eqf(${w}, rr, cu, uu); let ej = eqf(${w}, rr, -cu, uu);
+    let fp = 0.5 * (f${i} + f${j}); let fm = 0.5 * (f${i} - f${j}); let ep = 0.5 * (ei + ej); let em = 0.5 * (ei - ej);
+    fd[${i}u * N + idx] = mix(f${i} - omp * (fp - ep) - omm * (fm - em), eqf(${w}, rs, cu, uu), spg);
+    fd[${j}u * N + idx] = mix(f${j} - omp * (fp - ep) + omm * (fm - em), eqf(${w}, rs, -cu, uu), spg); }\n`;
+    }
+  } else {
+    for (let i = 0; i < 19; i++) {
+      const c = C[i];
+      s += `  fd[${i}u * N + idx] = eqf(${wf(W[i])}, rs, ${cuExpr(c, 'u')}, uu) + om1 * ${wf(W[i] * 4.5)} * (${cpcExpr(c)} - tr3);\n`;
+    }
+  }
+  s += `  mac[idx] = vec2<u32>(pack2x16float(u.xy), pack2x16float(vec2<f32>(u.z, rs - 1.0)));
+}
+`;
+  return s;
+}
+
+// Anfangszustand: überall Wind, im Modell Ruhe, kleine Störung
+function wgslInit() {
+  const { C, W } = D3Q19;
+  let s = WGSL_PRM + `
+@group(0) @binding(0) var<uniform> prm: Prm;
+@group(0) @binding(1) var<storage, read_write> fa: array<f32>;
+@group(0) @binding(2) var<storage, read> info: array<u32>;
+@group(0) @binding(3) var<storage, read_write> mac: array<vec2<u32>>;
+@compute @workgroup_size(64, 1, 1)
+fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+  if (g.x >= prm.dims.x) { return; }
+  let N = prm.dims.w;
+  let idx = g.x + prm.dims.x * g.y + prm.dims.x * prm.dims.y * g.z;
+  var u = prm.uin.xyz * prof(i32(g.z), prm.wall.w);
+  if ((info[idx] & ${SOLID_BIT}u) != 0u) { u = vec3<f32>(0.0); }
+  else {
+    let fx = f32(g.x); let fy = f32(g.y); let fz = f32(g.z);
+    let pert = vec3<f32>(0.0, sin(fx * 0.19 + fz * 0.31) * cos(fy * 0.23), sin(fy * 0.17 + fx * 0.29) * cos(fz * 0.21));
+    u = u + prm.coll.z * length(u) * pert;
+  }
+  let uu = dot(u, u);
+`;
+  for (let i = 0; i < 19; i++) s += `  fa[${i}u * N + idx] = eqf(${wf(W[i])}, 1.0, ${cuExpr(C[i], 'u')}, uu);\n`;
+  s += `  mac[idx] = vec2<u32>(pack2x16float(u.xy), pack2x16float(vec2<f32>(u.z, 0.0)));
+}
+`;
+  return s;
+}
+
+// Feld in eine 3D-Textur kopieren (optional zeitlich gemittelt); in festen Zellen
+// wird der Druck der Nachbarn eingetragen, damit die Oberfläche sauber eingefärbt wird.
+function wgslCopy() {
+  const nb = [['g.x > 0u', '-', '1u'], ['g.x + 1u < D.x', '+', '1u'], ['g.y > 0u', '-', 'D.x'], ['g.y + 1u < D.y', '+', 'D.x'],
+    ['g.z > 0u', '-', 'DXY'], ['g.z + 1u < D.z', '+', 'DXY']];
+  let s = `
+struct CP { alpha: f32, mode: u32, refx: u32, p1: u32, dims: vec4<u32> };
+@group(0) @binding(0) var<uniform> cp: CP;
+@group(0) @binding(1) var<storage, read> mac: array<vec2<u32>>;
+@group(0) @binding(2) var<storage, read> info: array<u32>;
+@group(0) @binding(3) var<storage, read_write> avg: array<vec4<f32>>;
+@group(0) @binding(4) var tex: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(5) var<storage, read_write> stat: array<atomic<u32>, 4>;
+fn rd(i: u32) -> vec4<f32> { let m = mac[i]; let a = unpack2x16float(m.x); let b = unpack2x16float(m.y); return vec4<f32>(a.x, a.y, b.x, b.y); }
+@compute @workgroup_size(8, 8, 1)
+fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+  let D = cp.dims;
+  let DXY = D.x * D.y;
+  if (g.x >= D.x || g.y >= D.y || g.z >= D.z) { return; }
+  let idx = g.x + D.x * g.y + DXY * g.z;
+  var v: vec4<f32>;
+  if ((info[idx] & ${SOLID_BIT}u) != 0u) {
+    var s = 0.0;
+    var c = 0.0;
+`;
+  for (const [cond, sign, off] of nb) {
+    s += `    if (${cond}) { let j = idx ${sign} ${off}; if ((info[j] & ${SOLID_BIT}u) == 0u) { s = s + rd(j).w; c = c + 1.0; } }\n`;
+  }
+  s += `    v = vec4<f32>(0.0, 0.0, 0.0, select(0.0, s / max(c, 1.0), c > 0.0));
+  } else {
+    v = rd(idx);
+    // Überwachung: größte Geschwindigkeit (auch unendlich/NaN) für die Stabilitätsprüfung
+    let sp = length(v.xyz);
+    let b = bitcast<u32>(sp);
+    if ((b & 0x7f800000u) == 0x7f800000u) { atomicMax(&stat[0], 0x7f800000u); }
+    else if (sp > ${wf(1.5 * U_LB)}) { atomicMax(&stat[0], b); }
+    // Bezugsdruck: Mittelwert in einer Ebene kurz hinter dem Einlass
+    if (g.x == cp.refx) {
+      atomicAdd(&stat[1], bitcast<u32>(i32(round(v.w * 1e4))));
+      atomicAdd(&stat[2], 1u);
+    }
+  }
+  if (cp.mode == 1u) { let nv = mix(avg[idx], v, cp.alpha); avg[idx] = nv; v = nv; }
+  textureStore(tex, vec3<i32>(g), v);
+}
+`;
+  return s;
+}
+
+// Stromlinien: Runge-Kutta 2. Ordnung mit fester Schrittlänge (in Zellen)
+const WGSL_TRACE = `
+struct SP { dims: vec4<f32>, cfg: vec4<u32>, st: vec4<f32> };
+@group(0) @binding(0) var<uniform> sp: SP;
+@group(0) @binding(1) var field: texture_3d<f32>;
+@group(0) @binding(2) var solidT: texture_3d<f32>;
+@group(0) @binding(3) var samp: sampler;
+@group(0) @binding(4) var<storage, read> seeds: array<vec4<f32>>;
+@group(0) @binding(5) var<storage, read_write> outv: array<vec4<f32>>;
+fn tc(p: vec3<f32>) -> vec3<f32> { return (p + 0.5) / sp.dims.xyz; }
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+  let s = g.x;
+  let M = sp.cfg.x;
+  if (s >= sp.cfg.y) { return; }
+  var p = seeds[s].xyz;
+  let ph = seeds[s].w;
+  var tau = 0.0;
+  var alive = true;
+  let h = sp.st.x;
+  let lo = vec3<f32>(-0.5);
+  let hi = sp.dims.xyz - vec3<f32>(0.5);
+  for (var k = 0u; k < M; k = k + 1u) {
+    let fv = textureSampleLevel(field, samp, tc(p), 0.0);
+    let o = (s * M + k) * 2u;
+    outv[o] = vec4<f32>(p, tau);
+    outv[o + 1u] = vec4<f32>(length(fv.xyz), fv.w, select(0.0, 1.0, alive), ph);
+    if (!alive) { continue; }
+    let s1 = length(fv.xyz);
+    if (s1 < 1e-5) { alive = false; continue; }
+    let pm = p + (0.5 * h / s1) * fv.xyz;
+    let f2 = textureSampleLevel(field, samp, tc(pm), 0.0).xyz;
+    let s2 = length(f2);
+    if (s2 < 1e-5) { alive = false; continue; }
+    let pn = p + (h / s2) * f2;
+    if (any(pn < lo) || any(pn > hi)) { alive = false; continue; }
+    if (textureSampleLevel(solidT, samp, tc(pn), 0.0).r > 0.5) { alive = false; continue; }
+    tau = tau + h / s2;
+    p = pn;
+  }
+}
+`;
+
+// Darstellung: Hintergrund, Boden, Modell, Stromlinien, Schnittebene, Kanalrahmen, Windpfeil
+const WGSL_RENDER = `
+struct Frame {
+  viewProj: mat4x4<f32>,
+  w2l: mat4x4<f32>,
+  l2w: mat4x4<f32>,
+  eye: vec4<f32>,
+  dims: vec4<f32>,
+  vp: vec4<f32>,
+  cm: vec4<f32>,
+  sl: vec4<f32>,
+  gr: vec4<f32>,
+  ctr: vec4<f32>,
+  an: vec4<f32>,
+};
+@group(0) @binding(0) var<uniform> F: Frame;
+@group(0) @binding(1) var fieldT: texture_3d<f32>;
+@group(0) @binding(2) var solidT: texture_3d<f32>;
+@group(0) @binding(3) var samp: sampler;
+@group(0) @binding(4) var cmapT: texture_2d<f32>;
+
+fn cmap(row: f32, t: f32) -> vec3<f32> {
+  return textureSampleLevel(cmapT, samp, vec2<f32>((0.5 + clamp(t, 0.0, 1.0) * 63.0) / 64.0, row), 0.0).rgb;
+}
+fn velC(speed: f32) -> vec3<f32> { return cmap(0.25, speed * F.cm.y); }
+fn presC(drho: f32) -> vec3<f32> { return cmap(0.75, 0.5 + (drho - F.vp.w) * F.cm.z); }
+fn colorOf(v: vec4<f32>) -> vec3<f32> {
+  if (F.cm.x < 0.5) { return velC(length(v.xyz)); }
+  return presC(v.w);
+}
+fn fieldAt(L: vec3<f32>) -> vec4<f32> { return textureSampleLevel(fieldT, samp, (L + 0.5) / F.dims.xyz, 0.0); }
+fn lit(base: vec3<f32>, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
+  let Lk = normalize(vec3<f32>(0.45, 0.30, 0.84));
+  let hemi = 0.5 + 0.5 * N.z;
+  let amb = mix(vec3<f32>(0.12, 0.13, 0.15), vec3<f32>(0.33, 0.36, 0.40), hemi);
+  let dif = max(dot(N, Lk), 0.0);
+  let fill = max(dot(N, V), 0.0) * 0.16;
+  let H = normalize(Lk + V);
+  let spec = pow(max(dot(N, H), 0.0), 60.0) * 0.30;
+  let rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * 0.12;
+  return base * (amb + vec3<f32>(dif * 0.66 + fill)) + vec3<f32>(spec) + rim * vec3<f32>(0.55, 0.65, 0.8);
+}
+
+// Hintergrund
+struct BgOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
+@vertex fn vsBg(@builtin(vertex_index) i: u32) -> BgOut {
+  var p = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+  var o: BgOut;
+  o.pos = vec4<f32>(p[i], 0.0, 1.0);
+  o.uv = p[i] * 0.5 + vec2<f32>(0.5);
+  return o;
+}
+@fragment fn fsBg(i: BgOut) -> @location(0) vec4<f32> {
+  let top = vec3<f32>(0.118, 0.157, 0.204);
+  let bot = vec3<f32>(0.047, 0.063, 0.086);
+  var c = mix(bot, top, smoothstep(0.0, 1.0, i.uv.y));
+  let d = length((i.uv - vec2<f32>(0.5, 0.42)) * vec2<f32>(1.5, 1.0));
+  c = c * (1.0 - 0.28 * smoothstep(0.35, 1.25, d));
+  return vec4<f32>(c, 1.0);
+}
+
+// Boden (nur bei Modellen auf dem Boden): Raster, Grundfläche des Kanals heller
+struct GOut { @builtin(position) pos: vec4<f32>, @location(0) wp: vec3<f32> };
+@vertex fn vsGround(@builtin(vertex_index) i: u32) -> GOut {
+  var q = array<vec2<f32>, 6>(vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0));
+  let R = F.gr.z;
+  let p = vec3<f32>(F.ctr.x + q[i].x * R, F.ctr.y + q[i].y * R, 0.0);
+  var o: GOut;
+  o.pos = F.viewProj * vec4<f32>(p, 1.0);
+  o.wp = p;
+  return o;
+}
+@fragment fn fsGround(i: GOut) -> @location(0) vec4<f32> {
+  let p = i.wp.xy / F.gr.y;
+  let fw = max(fwidth(p), vec2<f32>(1e-6));
+  let gl = abs(fract(p - 0.5) - 0.5) / fw;
+  let line = 1.0 - min(min(gl.x, gl.y), 1.0);
+  let L = (F.w2l * vec4<f32>(i.wp, 1.0)).xyz;
+  let inside = L.x > -0.5 && L.y > -0.5 && L.x < F.dims.x - 0.5 && L.y < F.dims.y - 0.5;
+  var c = vec3<f32>(0.105, 0.125, 0.150);
+  if (inside) { c = vec3<f32>(0.150, 0.172, 0.200); }
+  c = mix(c, vec3<f32>(0.24, 0.275, 0.32), line * 0.55);
+  let r = length(i.wp.xy - F.ctr.xy) / F.gr.z;
+  return vec4<f32>(c, 1.0 - smoothstep(0.45, 1.0, r));
+}
+
+// Modell
+struct MOut { @builtin(position) pos: vec4<f32>, @location(0) wp: vec3<f32>, @location(1) n: vec3<f32>, @location(2) c: vec3<f32> };
+@vertex fn vsMesh(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>, @location(2) c: vec3<f32>) -> MOut {
+  var o: MOut;
+  o.pos = F.viewProj * vec4<f32>(p, 1.0);
+  o.wp = p; o.n = n; o.c = c;
+  return o;
+}
+@fragment fn fsMesh(i: MOut) -> @location(0) vec4<f32> {
+  let V = normalize(F.eye.xyz - i.wp);
+  let Ng = normalize(i.n);
+  var N = Ng;
+  if (dot(N, V) < 0.0) { N = -N; }
+  var base = i.c;
+  if (F.cm.w > 0.5 && F.dims.w > 0.5) {
+    let L = (F.w2l * vec4<f32>(i.wp, 1.0)).xyz;
+    let nl = normalize((F.w2l * vec4<f32>(Ng, 0.0)).xyz);
+    // knapp außerhalb der Wand abtasten und über drei Abstände mitteln (glättet die Treppenstufen)
+    let fv = (fieldAt(L + nl * 0.9) + fieldAt(L + nl * 1.8) + fieldAt(L + nl * 2.7)) / 3.0;
+    let lum = dot(i.c, vec3<f32>(0.33));
+    base = colorOf(fv) * mix(0.55, 1.0, smoothstep(0.15, 0.6, lum));
+  }
+  return vec4<f32>(lit(base, N, V), 1.0);
+}
+
+// Windpfeil (eigene Lage und Farbe)
+struct Obj { model: mat4x4<f32>, color: vec4<f32> };
+@group(1) @binding(0) var<uniform> obj: Obj;
+@vertex fn vsObj(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>, @location(2) c: vec3<f32>) -> MOut {
+  var o: MOut;
+  let wp = (obj.model * vec4<f32>(p, 1.0)).xyz;
+  o.pos = F.viewProj * vec4<f32>(wp, 1.0);
+  o.wp = wp; o.n = (obj.model * vec4<f32>(n, 0.0)).xyz; o.c = obj.color.rgb;
+  return o;
+}
+@fragment fn fsObj(i: MOut) -> @location(0) vec4<f32> {
+  let V = normalize(F.eye.xyz - i.wp);
+  var N = normalize(i.n);
+  if (dot(N, V) < 0.0) { N = -N; }
+  return vec4<f32>(lit(i.c, N, V) * 1.05, 1.0);
+}
+
+// Stromlinien als Bänder mit Röhren-Schattierung
+struct LP { cfg: vec4<u32> };
+@group(1) @binding(0) var<storage, read> lines: array<vec4<f32>>;
+@group(1) @binding(1) var<uniform> lp: LP;
+struct LOut { @builtin(position) pos: vec4<f32>, @location(0) side: f32, @location(1) val: vec2<f32>, @location(2) tau: f32, @location(3) ph: f32 };
+@vertex fn vsLine(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> LOut {
+  var o: LOut;
+  o.side = 0.0; o.val = vec2<f32>(0.0); o.tau = 0.0; o.ph = 0.0;
+  let M = lp.cfg.x;
+  let segs = M - 1u;
+  let l = ii / segs;
+  let k = ii % segs;
+  let a = (l * M + k) * 2u;
+  let b = a + 2u;
+  let A0 = lines[a]; let A1 = lines[a + 1u];
+  let B0 = lines[b]; let B1 = lines[b + 1u];
+  if (A1.z < 0.5 || B1.z < 0.5) { o.pos = vec4<f32>(2.0, 2.0, 2.0, 1.0); return o; }
+  let pa = (F.l2w * vec4<f32>(A0.xyz, 1.0)).xyz;
+  let pb = (F.l2w * vec4<f32>(B0.xyz, 1.0)).xyz;
+  let ca = F.viewProj * vec4<f32>(pa, 1.0);
+  let cb = F.viewProj * vec4<f32>(pb, 1.0);
+  if (ca.w < 1e-4 || cb.w < 1e-4) { o.pos = vec4<f32>(2.0, 2.0, 2.0, 1.0); return o; }
+  let asp = F.vp.x / F.vp.y;
+  var d = (cb.xy / cb.w - ca.xy / ca.w) * vec2<f32>(asp, 1.0);
+  let dl = length(d);
+  if (dl < 1e-7) { d = vec2<f32>(1.0, 0.0); } else { d = d / dl; }
+  let nrm = vec2<f32>(-d.y, d.x);
+  var cs = array<vec2<f32>, 6>(vec2<f32>(0.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(0.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(0.0, 1.0));
+  let cc = cs[vi];
+  let endB = cc.x > 0.5;
+  var c = select(ca, cb, endB);
+  let hw = F.vp.z / F.vp.y;
+  var off = nrm * cc.y * hw + d * select(-0.6, 0.6, endB) * hw;
+  off.x = off.x / asp;
+  o.pos = vec4<f32>(c.xy + off * c.w, c.z, c.w);
+  o.side = cc.y;
+  let V = select(A1, B1, endB);
+  o.val = V.xy;
+  o.tau = select(A0.w, B0.w, endB);
+  o.ph = A1.w;
+  return o;
+}
+@fragment fn fsLine(i: LOut) -> @location(0) vec4<f32> {
+  var col: vec3<f32>;
+  if (F.cm.x < 0.5) { col = velC(i.val.x); } else { col = presC(i.val.y); }
+  let sh = sqrt(max(0.0, 1.0 - i.side * i.side));
+  var c = col * (0.42 + 0.68 * sh) + vec3<f32>(0.22) * pow(sh, 14.0);
+  if (F.an.w > 0.5) {
+    let ph = fract(i.tau / F.an.y - F.an.x * F.an.z / F.an.y + i.ph);
+    let pulse = smoothstep(0.78, 0.97, ph) * (1.0 - smoothstep(0.97, 1.0, ph));
+    c = c + (col * 0.9 + vec3<f32>(0.18)) * pulse;
+  }
+  return vec4<f32>(c, 1.0);
+}
+
+// Schnittebene
+struct SOut { @builtin(position) pos: vec4<f32>, @location(0) L: vec3<f32> };
+@vertex fn vsSlice(@builtin(vertex_index) i: u32) -> SOut {
+  var q = array<vec2<f32>, 6>(vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0), vec2<f32>(0.0, 1.0));
+  let n = F.dims.xyz;
+  let u = q[i].x;
+  let v = q[i].y;
+  var L: vec3<f32>;
+  if (F.sl.x < 0.5) { L = vec3<f32>(F.sl.y, -0.5 + u * n.y, -0.5 + v * n.z); }
+  else if (F.sl.x < 1.5) { L = vec3<f32>(-0.5 + u * n.x, F.sl.y, -0.5 + v * n.z); }
+  else { L = vec3<f32>(-0.5 + u * n.x, -0.5 + v * n.y, F.sl.y); }
+  var o: SOut;
+  o.pos = F.viewProj * (F.l2w * vec4<f32>(L, 1.0));
+  o.L = L;
+  return o;
+}
+@fragment fn fsSlice(i: SOut) -> @location(0) vec4<f32> {
+  let t = (i.L + 0.5) / F.dims.xyz;
+  let fv = textureSampleLevel(fieldT, samp, t, 0.0);
+  let so = textureSampleLevel(solidT, samp, t, 0.0).r;
+  let c = mix(colorOf(fv), vec3<f32>(0.30, 0.33, 0.37), smoothstep(0.42, 0.58, so));
+  return vec4<f32>(c, F.sl.z);
+}
+
+// Rahmen des Windkanals (Einlass hervorgehoben)
+struct BOut { @builtin(position) pos: vec4<f32>, @location(0) @interpolate(flat) inlet: f32 };
+@vertex fn vsBox(@builtin(vertex_index) i: u32) -> BOut {
+  var e = array<u32, 24>(0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u, 0u, 2u, 1u, 3u, 4u, 6u, 5u, 7u, 0u, 4u, 1u, 5u, 2u, 6u, 3u, 7u);
+  let c = e[i];
+  let b = vec3<f32>(f32(c & 1u), f32((c >> 1u) & 1u), f32((c >> 2u) & 1u));
+  let L = vec3<f32>(-0.5) + b * F.dims.xyz;
+  let e0 = e[(i / 2u) * 2u];
+  let e1 = e[(i / 2u) * 2u + 1u];
+  var o: BOut;
+  o.pos = F.viewProj * (F.l2w * vec4<f32>(L, 1.0));
+  o.inlet = select(0.0, 1.0, ((e0 | e1) & 1u) == 0u);
+  return o;
+}
+@fragment fn fsBox(i: BOut) -> @location(0) vec4<f32> {
+  if (i.inlet > 0.5) { return vec4<f32>(0.96, 0.72, 0.26, 0.85); }
+  return vec4<f32>(0.62, 0.70, 0.80, 0.30);
+}
+`;
+
+// ---------- 6. Grafikkarte: Simulation und Darstellung ----------
+const U_LB = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('ulb')) ? +new URLSearchParams(location.search).get('ulb') : 0.1; // Windgeschwindigkeit im Gitter (Zellen je Schritt)
+const NU_AIR = 1.5e-5;     // kinematische Viskosität Luft, m²/s
+const RHO_AIR = 1.204;     // Dichte Luft bei 20 °C, kg/m³
+const NU_MIN = 2e-4;       // kleinste Gitterviskosität (Stabilität, Gitter-Reynoldszahl 500)
+const C_SMAG = 0.15;       // Smagorinsky-Konstante
+const SPONGE = 0.08;       // Stärke der Schwammzone am Rand
+const BYTES_PER_CELL = 19 * 4 * 2 + 4 + 8 + 16 + 8 + 1;
+const LEVELS = [
+  { name: 'sehr grob', cells: 0.25e6 }, { name: 'grob', cells: 0.5e6 }, { name: 'mittel', cells: 1e6 },
+  { name: 'fein', cells: 2e6 }, { name: 'sehr fein', cells: 4e6 }, { name: 'extrem fein', cells: 8e6 }, { name: 'maximal', cells: 16e6 },
+];
+const MAX_LINES = 1500;
+
+const BU = () => GPUBufferUsage, TU = () => GPUTextureUsage;
+
+let SIM_PIPES = null;   // übersetzte Rechen-Shader, für alle Gitter gleich
+
+class Sim {
+  constructor(dev) { this.dev = dev; this.r = null; this.parity = 0; }
+
+  destroy() {
+    if (!this.r) return;
+    for (const k of ['fA', 'fB', 'info', 'mac', 'avg', 'prm', 'cp', 'seeds', 'lines', 'sp', 'stat', 'statRd']) this.r[k] && this.r[k].destroy();
+    this.r.fieldTex.destroy(); this.r.solidTex.destroy();
+    this.r = null;
+  }
+
+  async build(dom, info, solid, tracePipe, sampler) {
+    this.destroy();
+    const dev = this.dev, { nx, ny, nz } = dom, N = nx * ny * nz;
+    const S = BU().STORAGE, CD = BU().COPY_DST;
+    dev.pushErrorScope('out-of-memory');
+    dev.pushErrorScope('validation');
+    const B = (size, usage) => dev.createBuffer({ size: Math.max(16, Math.ceil(size / 16) * 16), usage });
+    const r = {};
+    r.fA = B(19 * N * 4, S); r.fB = B(19 * N * 4, S);
+    r.info = B(N * 4, S | CD);
+    r.mac = B(N * 8, S | BU().COPY_SRC);
+    r.avg = B(N * 16, S);
+    r.prm = B(96, BU().UNIFORM | CD);
+    r.cp = B(32, BU().UNIFORM | CD);
+    r.sp = B(48, BU().UNIFORM | CD);
+    r.stat = B(16, S | CD | BU().COPY_SRC);
+    r.statRd = B(16, BU().COPY_DST | BU().MAP_READ);
+    r.M = clamp(Math.round(2.2 * nx / 0.75), 256, 1536);
+    r.seeds = B(MAX_LINES * 16, S | CD);
+    r.lines = B(MAX_LINES * r.M * 32, S);
+    r.fieldTex = dev.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'rgba16float', usage: TU().STORAGE_BINDING | TU().TEXTURE_BINDING });
+    r.solidTex = dev.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'r8unorm', usage: TU().TEXTURE_BINDING | TU().COPY_DST });
+    dev.queue.writeBuffer(r.info, 0, info);
+    const s255 = new Uint8Array(N);
+    for (let i = 0; i < N; i++) s255[i] = solid[i] ? 255 : 0;
+    dev.queue.writeTexture({ texture: r.solidTex }, s255, { bytesPerRow: nx, rowsPerImage: ny }, [nx, ny, nz]);
+    const eV = await dev.popErrorScope(), eM = await dev.popErrorScope();
+    if (eM || eV) {
+      this.r = r; this.destroy();
+      const err = new Error((eM || eV).message); err.oom = !!eM; throw err;
+    }
+    // Shader nur einmal übersetzen (Gittermaße stehen im Uniform-Puffer)
+    if (!SIM_PIPES) {
+      const mk = (code, label) => dev.createComputePipelineAsync({ layout: 'auto', label, compute: { module: dev.createShaderModule({ code, label }), entryPoint: 'main' } });
+      try {
+        SIM_PIPES = await Promise.all([mk(wgslStep(), 'step'), mk(wgslInit(), 'init'), mk(wgslCopy(), 'copy')]);
+      } catch (e) { this.r = r; this.destroy(); throw e; }
+    }
+    [r.pStep, r.pInit, r.pCopy] = SIM_PIPES;
+    const bg = (p, ent) => dev.createBindGroup({ layout: p.getBindGroupLayout(0), entries: ent.map((x, i) => ({ binding: i, resource: x.createView ? x.createView() : (x.buffer ? x : { buffer: x }) })) });
+    r.bgStep = [bg(r.pStep, [r.prm, r.fA, r.fB, r.info, r.mac]), bg(r.pStep, [r.prm, r.fB, r.fA, r.info, r.mac])];
+    r.bgInit = bg(r.pInit, [r.prm, r.fA, r.info, r.mac]);
+    r.bgCopy = dev.createBindGroup({ layout: r.pCopy.getBindGroupLayout(0), entries: [
+      { binding: 0, resource: { buffer: r.cp } }, { binding: 1, resource: { buffer: r.mac } }, { binding: 2, resource: { buffer: r.info } },
+      { binding: 3, resource: { buffer: r.avg } }, { binding: 4, resource: r.fieldTex.createView() }, { binding: 5, resource: { buffer: r.stat } }] });
+    r.bgTrace = dev.createBindGroup({ layout: tracePipe.getBindGroupLayout(0), entries: [
+      { binding: 0, resource: { buffer: r.sp } }, { binding: 1, resource: r.fieldTex.createView() }, { binding: 2, resource: r.solidTex.createView() },
+      { binding: 3, resource: sampler }, { binding: 4, resource: { buffer: r.seeds } }, { binding: 5, resource: { buffer: r.lines } }] });
+    r.nx = nx; r.ny = ny; r.nz = nz; r.N = N;
+    r.nSeeds = 0;
+    this.r = r; this.parity = 0;
+    this.tracePipe = tracePipe;
+  }
+
+  setParams(p) {
+    const r = this.r, d = new ArrayBuffer(96), f = new Float32Array(d), u = new Uint32Array(d);
+    f.set([U_LB, 0, 0, 0], 0);
+    f.set([0, 0, 0, p.delta || 0], 4);
+    const cs = p.cs != null ? p.cs : C_SMAG;
+    f.set([p.tau0, 18 * Math.SQRT2 * cs * cs, p.noise != null ? p.noise : 0.02, p.sponge != null ? p.sponge : SPONGE], 8);
+    u.set([p.floor || 0, 0, 0, 0], 12);
+    u.set([r.nx, r.ny, r.nz, r.N], 16);
+    f.set([spongeW(r.nx), spongeW(Math.min(r.ny, r.nz)), 0, 0], 20);
+    this.dev.queue.writeBuffer(r.prm, 0, d);
+  }
+
+  init(enc) {
+    const r = this.r, p = enc.beginComputePass();
+    p.setPipeline(r.pInit); p.setBindGroup(0, r.bgInit);
+    p.dispatchWorkgroups(Math.ceil(r.nx / 64), r.ny, r.nz); p.end();
+    this.parity = 0;
+  }
+
+  steps(enc, k) {
+    const r = this.r, p = enc.beginComputePass();
+    p.setPipeline(r.pStep);
+    const gx = Math.ceil(r.nx / 64);
+    for (let i = 0; i < k; i++) { p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz); this.parity ^= 1; }
+    p.end();
+  }
+
+  copy(enc, mode, alpha) {
+    const r = this.r;
+    const d = new ArrayBuffer(32), u = new Uint32Array(d);
+    new Float32Array(d)[0] = alpha; u[1] = mode; u[2] = Math.min(3, r.nx - 1); u.set([r.nx, r.ny, r.nz, 0], 4);
+    this.dev.queue.writeBuffer(r.cp, 0, d);
+    const p = enc.beginComputePass();
+    p.setPipeline(r.pCopy); p.setBindGroup(0, r.bgCopy);
+    p.dispatchWorkgroups(Math.ceil(r.nx / 8), Math.ceil(r.ny / 8), r.nz); p.end();
+  }
+
+  setSeeds(seeds) {
+    const r = this.r;
+    r.nSeeds = Math.min(MAX_LINES, seeds.length / 4);
+    if (r.nSeeds) this.dev.queue.writeBuffer(r.seeds, 0, seeds.subarray(0, r.nSeeds * 4));
+    const d = new ArrayBuffer(48), f = new Float32Array(d), u = new Uint32Array(d);
+    f.set([r.nx, r.ny, r.nz, 0], 0); u.set([r.M, r.nSeeds, 0, 0], 4); f.set([0.75, 0, 0, 0], 8);
+    this.dev.queue.writeBuffer(r.sp, 0, d);
+  }
+
+  trace(enc) {
+    const r = this.r;
+    if (!r.nSeeds) return;
+    const p = enc.beginComputePass();
+    p.setPipeline(this.tracePipe); p.setBindGroup(0, r.bgTrace);
+    p.dispatchWorkgroups(Math.ceil(r.nSeeds / 64)); p.end();
+  }
+
+  // größte Geschwindigkeit und mittlere Dichte am Einlass seit der letzten Abfrage, danach zurücksetzen
+  async readStats() {
+    const r = this.r;
+    if (!r || r.statBusy) return null;
+    r.statBusy = true;
+    const enc = this.dev.createCommandEncoder();
+    enc.copyBufferToBuffer(r.stat, 0, r.statRd, 0, 16);
+    this.dev.queue.submit([enc.finish()]);
+    this.dev.queue.writeBuffer(r.stat, 0, new Uint32Array(4));
+    try {
+      await r.statRd.mapAsync(GPUMapMode.READ);
+      const buf = r.statRd.getMappedRange().slice(0, 16);
+      r.statRd.unmap();
+      const f = new Float32Array(buf), i = new Int32Array(buf), u = new Uint32Array(buf);
+      return { umax: f[0], pRef: u[2] > 0 ? i[1] / u[2] / 1e4 : null };
+    } catch (e) { return null; } finally { r.statBusy = false; }
+  }
+
+  // Werte zurücklesen (für Prüfungen): Geschwindigkeit und Dichteabweichung je Zelle
+  async readMacro(first = 0, count = null) {
+    const r = this.r, n = count || r.N;
+    const buf = this.dev.createBuffer({ size: n * 8, usage: BU().COPY_DST | BU().MAP_READ });
+    const enc = this.dev.createCommandEncoder();
+    enc.copyBufferToBuffer(r.mac, first * 8, buf, 0, n * 8);
+    this.dev.queue.submit([enc.finish()]);
+    await buf.mapAsync(GPUMapMode.READ);
+    const h = new Uint16Array(buf.getMappedRange().slice(0));
+    buf.unmap(); buf.destroy();
+    const out = new Float32Array(n * 4);
+    for (let i = 0; i < n * 4; i++) out[i] = half2float(h[i]);
+    return out;
+  }
+}
+
+function half2float(h) {
+  const s = (h & 0x8000) ? -1 : 1, e = (h >> 10) & 0x1f, f = h & 0x3ff;
+  if (e === 0) return s * Math.pow(2, -14) * (f / 1024);
+  if (e === 31) return f ? NaN : s * Infinity;
+  return s * Math.pow(2, e - 15) * (1 + f / 1024);
+}
+
+// Farbtabellen: Geschwindigkeit (Turbo), Druck (Blau–Weiß–Rot)
+const CMAP_VEL = '30123b351e58392a733d358b4040a2424bb54456c74661d6466be34776ee4680f6458afc4294ff3d9efe37a8fa2fb2f427bee920c7df1bd0d518d7ca18dec01ae4b620eaac2aefa135f39443f78752fa7a61fc6c71fe5f80ff538fff499cfe40a9fb39b4f836bef434c8ef34d2e935dbe236e3db38ebd339f1cb3af6c33afaba39fcb136fea732fe9b2dfe9029fc8423f9751df56918f15d13ec530fe7490ce14109da3907d23105ca2a04c12302b71d02ac1701a11201950d018808027a0403';
+const CMAP_PRES = '3b4cc03f53c6445acc4961d24e68d8536edd5875e15d7ce66282ea6788ee6c8ff17295f4779af77da0f982a6fb88abfd8fb1fe94b6ff9abbff9fbfffa5c3feaac7fdafcafcb5cdfabad0f8bfd3f6c4d5f3c9d7f0cdd9ecd2dbe8d6dce4dadce0dfdbd9e3d9d3e7d7ceead4c8edd1c2f0cdbbf2cab5f4c6aff5c1a9f6bda2f7b89cf7b396f7ad90f7a889f6a283f59c7df39475f18d6fee8669ec7f63e9785de57058e26952de614dd95847d55042d0473dcb3e38c53334c0282fba162bb40426';
+
+function hexLut(s) {
+  const n = s.length / 6, o = [];
+  for (let i = 0; i < n; i++) o.push([parseInt(s.substr(i * 6, 2), 16), parseInt(s.substr(i * 6 + 2, 2), 16), parseInt(s.substr(i * 6 + 4, 2), 16)]);
+  return o;
+}
+
+class Renderer {
+  constructor(dev, format) {
+    this.dev = dev; this.format = format;
+    const V = GPUShaderStage.VERTEX, F = GPUShaderStage.FRAGMENT;
+    this.sampler = dev.createSampler({ magFilter: 'linear', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge', addressModeW: 'clamp-to-edge' });
+    this.bgl0 = dev.createBindGroupLayout({ entries: [
+      { binding: 0, visibility: V | F, buffer: { type: 'uniform' } },
+      { binding: 1, visibility: V | F, texture: { sampleType: 'float', viewDimension: '3d' } },
+      { binding: 2, visibility: V | F, texture: { sampleType: 'float', viewDimension: '3d' } },
+      { binding: 3, visibility: V | F, sampler: { type: 'filtering' } },
+      { binding: 4, visibility: V | F, texture: { sampleType: 'float', viewDimension: '2d' } }] });
+    this.bglLine = dev.createBindGroupLayout({ entries: [
+      { binding: 0, visibility: V, buffer: { type: 'read-only-storage' } },
+      { binding: 1, visibility: V, buffer: { type: 'uniform' } }] });
+    this.bglObj = dev.createBindGroupLayout({ entries: [{ binding: 0, visibility: V | F, buffer: { type: 'uniform' } }] });
+    this.frameBuf = dev.createBuffer({ size: 320, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.lineBuf = dev.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.objBuf = dev.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.bgObj = dev.createBindGroup({ layout: this.bglObj, entries: [{ binding: 0, resource: { buffer: this.objBuf } }] });
+    // Farbtabellen
+    this.cmapTex = dev.createTexture({ size: [64, 2], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+    const px = new Uint8Array(64 * 2 * 4);
+    [CMAP_VEL, CMAP_PRES].forEach((h, row) => hexLut(h).forEach((c, i) => px.set([c[0], c[1], c[2], 255], (row * 64 + i) * 4)));
+    dev.queue.writeTexture({ texture: this.cmapTex }, px, { bytesPerRow: 256 }, [64, 2]);
+    // Platzhalter, solange noch kein Gitter da ist
+    this.dummy3d = dev.createTexture({ size: [1, 1, 1], dimension: '3d', format: 'rgba16float', usage: GPUTextureUsage.TEXTURE_BINDING });
+    this.dummy3s = dev.createTexture({ size: [1, 1, 1], dimension: '3d', format: 'r8unorm', usage: GPUTextureUsage.TEXTURE_BINDING });
+    this.setTextures(this.dummy3d, this.dummy3s);
+    this.mesh = null; this.arrow = null; this.lineBG = null;
+    this.size = [0, 0];
+  }
+
+  async createPipelines() {
+    const dev = this.dev, mod = dev.createShaderModule({ code: WGSL_RENDER, label: 'render' });
+    const pl = (bgls) => dev.createPipelineLayout({ bindGroupLayouts: bgls });
+    const blend = { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } };
+    const meshVB = [{ arrayStride: 36, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x3' }, { shaderLocation: 2, offset: 24, format: 'float32x3' }] }];
+    const mk = (o) => dev.createRenderPipelineAsync({
+      label: o.vs,
+      layout: pl(o.bgls || [this.bgl0]),
+      vertex: { module: mod, entryPoint: o.vs, buffers: o.vb || [] },
+      fragment: { module: mod, entryPoint: o.fs, targets: [{ format: this.format, blend: o.blend ? blend : undefined }] },
+      primitive: { topology: o.topo || 'triangle-list', cullMode: 'none' },
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: o.dw !== false, depthCompare: o.dc || 'less' },
+      multisample: { count: 4 },
+    });
+    [this.pBg, this.pGround, this.pMesh, this.pObj, this.pLine, this.pSlice, this.pBox] = await Promise.all([
+      mk({ vs: 'vsBg', fs: 'fsBg', dw: false, dc: 'always' }),
+      mk({ vs: 'vsGround', fs: 'fsGround', blend: true }),
+      mk({ vs: 'vsMesh', fs: 'fsMesh', vb: meshVB }),
+      mk({ vs: 'vsObj', fs: 'fsObj', vb: meshVB, bgls: [this.bgl0, this.bglObj] }),
+      mk({ vs: 'vsLine', fs: 'fsLine', bgls: [this.bgl0, this.bglLine] }),
+      mk({ vs: 'vsSlice', fs: 'fsSlice', blend: true, dw: false }),
+      mk({ vs: 'vsBox', fs: 'fsBox', blend: true, dw: false, topo: 'line-list' }),
+    ]);
+    this.tracePipe = await dev.createComputePipelineAsync({ layout: 'auto', compute: { module: dev.createShaderModule({ code: WGSL_TRACE, label: 'trace' }), entryPoint: 'main' } });
+  }
+
+  setTextures(field, solid) {
+    this.bg0 = this.dev.createBindGroup({ layout: this.bgl0, entries: [
+      { binding: 0, resource: { buffer: this.frameBuf } }, { binding: 1, resource: field.createView() },
+      { binding: 2, resource: solid.createView() }, { binding: 3, resource: this.sampler }, { binding: 4, resource: this.cmapTex.createView() }] });
+  }
+
+  setSim(sim) {
+    if (!sim || !sim.r) { this.setTextures(this.dummy3d, this.dummy3s); this.lineBG = null; return; }
+    this.setTextures(sim.r.fieldTex, sim.r.solidTex);
+    this.lineBG = this.dev.createBindGroup({ layout: this.bglLine, entries: [{ binding: 0, resource: { buffer: sim.r.lines } }, { binding: 1, resource: { buffer: this.lineBuf } }] });
+    this.dev.queue.writeBuffer(this.lineBuf, 0, new Uint32Array([sim.r.M, 0, 0, 0]));
+  }
+
+  uploadMesh(mesh) {
+    const nv = mesh.pos.length / 3, data = new Float32Array(nv * 9);
+    for (let i = 0; i < nv; i++) {
+      data.set(mesh.pos.subarray(i * 3, i * 3 + 3), i * 9);
+      data.set(mesh.nrm.subarray(i * 3, i * 3 + 3), i * 9 + 3);
+      data.set(mesh.col.subarray(i * 3, i * 3 + 3), i * 9 + 6);
+    }
+    const vb = this.dev.createBuffer({ size: data.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+    this.dev.queue.writeBuffer(vb, 0, data);
+    const ib = this.dev.createBuffer({ size: Math.ceil(mesh.idx.byteLength / 4) * 4, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST });
+    this.dev.queue.writeBuffer(ib, 0, mesh.idx);
+    return { vb, ib, n: mesh.idx.length };
+  }
+
+  setMesh(mesh) {
+    if (this.mesh) { this.mesh.vb.destroy(); this.mesh.ib.destroy(); }
+    this.mesh = this.uploadMesh(mesh);
+  }
+
+  resize(w, h) {
+    if (w === this.size[0] && h === this.size[1]) return;
+    this.size = [w, h];
+    if (this.msaa) { this.msaa.destroy(); this.depth.destroy(); }
+    this.msaa = this.dev.createTexture({ size: [w, h], sampleCount: 4, format: this.format, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    this.depth = this.dev.createTexture({ size: [w, h], sampleCount: 4, format: 'depth24plus', usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    this.msaaView = this.msaa.createView(); this.depthView = this.depth.createView();
+  }
+
+  // sc: Szene (Kamera, Gitter, Anzeige-Einstellungen)
+  draw(enc, targetView, sc) {
+    const fr = new Float32Array(80);
+    fr.set(sc.viewProj, 0); fr.set(sc.w2l, 16); fr.set(sc.l2w, 32);
+    fr.set([sc.eye[0], sc.eye[1], sc.eye[2], sc.time], 48);
+    fr.set([sc.dims[0], sc.dims[1], sc.dims[2], sc.hasField ? 1 : 0], 52);
+    fr.set([this.size[0], this.size[1], sc.lineWidth, sc.pRef || 0], 56);
+    fr.set([sc.colorMode, sc.velScale, sc.presScale, sc.surface ? 1 : 0], 60);
+    fr.set([sc.sliceAxis, sc.slicePos, 0.94, 0], 64);
+    fr.set([sc.ground ? 1 : 0, sc.gridStep, sc.groundR, 0], 68);
+    fr.set([sc.center[0], sc.center[1], sc.center[2], 0], 72);
+    fr.set([sc.time, sc.pulsePeriod, sc.pulseRate, sc.animate ? 1 : 0], 76);
+    this.dev.queue.writeBuffer(this.frameBuf, 0, fr);
+    if (sc.arrow && this.arrow) {
+      const o = new Float32Array(20); o.set(sc.arrow.model, 0); o.set([0.96, 0.72, 0.26, 1], 16);
+      this.dev.queue.writeBuffer(this.objBuf, 0, o);
+    }
+    const pass = enc.beginRenderPass({
+      colorAttachments: [{ view: this.msaaView, resolveTarget: targetView, loadOp: 'clear', clearValue: { r: 0, g: 0, b: 0, a: 1 }, storeOp: 'discard' }],
+      depthStencilAttachment: { view: this.depthView, depthLoadOp: 'clear', depthClearValue: 1, depthStoreOp: 'discard' },
+    });
+    pass.setBindGroup(0, this.bg0);
+    pass.setPipeline(this.pBg); pass.draw(3);
+    if (sc.ground) { pass.setPipeline(this.pGround); pass.draw(6); }
+    if (this.mesh) {
+      pass.setPipeline(this.pMesh); pass.setVertexBuffer(0, this.mesh.vb); pass.setIndexBuffer(this.mesh.ib, 'uint32'); pass.drawIndexed(this.mesh.n);
+    }
+    if (sc.arrow && this.arrow) {
+      pass.setPipeline(this.pObj); pass.setBindGroup(1, this.bgObj);
+      pass.setVertexBuffer(0, this.arrow.vb); pass.setIndexBuffer(this.arrow.ib, 'uint32'); pass.drawIndexed(this.arrow.n);
+    }
+    if (sc.lines && this.lineBG && sc.nLines > 0 && sc.hasField) {
+      pass.setPipeline(this.pLine); pass.setBindGroup(1, this.lineBG);
+      pass.draw(6, sc.nLines * (sc.M - 1));
+    }
+    if (sc.sliceAxis >= 0 && sc.hasField) { pass.setPipeline(this.pSlice); pass.draw(6); }
+    if (sc.box && sc.dims[0] > 1) { pass.setPipeline(this.pBox); pass.draw(24); }
+    pass.end();
+  }
+}
+
+// Windpfeil: Schaft und Spitze entlang +z, Länge 1
+function buildArrowMesh() {
+  const a = partCylinder(partNew(), [0, 0, 0.36], 'z', 0.035, 0.035, 0.36, COL.alu, COL.alu, null, 20);
+  const b = partCylinder(partNew(), [0, 0, 0.86], 'z', 0.095, 0.0005, 0.14, COL.alu, COL.alu, null, 28);
+  return meshFinish([a, b]);
+}
+
+// ---------- 7. Kamera ----------
+// Dreht um das Modell; Modell und Wind bleiben im Raum fest.
+class OrbitCam {
+  constructor() {
+    this.target = [0, 0, 0]; this.dist = 10; this.az = 35 * DEG; this.el = 18 * DEG; this.fov = 36 * DEG;
+    this.minDist = 0.1; this.maxDist = 1e4; this.anim = null; this.home = null; this.minEl = -1.48; this.windAz = 0;
+  }
+  eye() {
+    const ce = Math.cos(this.el);
+    return [this.target[0] + this.dist * ce * Math.cos(this.az), this.target[1] + this.dist * ce * Math.sin(this.az), this.target[2] + this.dist * Math.sin(this.el)];
+  }
+  matrices(aspect) {
+    const eye = this.eye();
+    const view = m4.lookAt(eye, this.target, [0, 0, 1]);
+    const proj = m4.perspective(this.fov, aspect, this.dist * 0.02, this.dist * 80);
+    return { eye, viewProj: m4.mul(proj, view) };
+  }
+  orbit(dx, dy) { this.anim = null; this.az -= dx * 0.0065; this.el = clamp(this.el + dy * 0.0065, this.minEl, 1.53); }
+  pan(dx, dy, h) {
+    this.anim = null;
+    const eye = this.eye(), f = v3.norm(v3.sub(this.target, eye)), r = v3.norm(v3.cross(f, [0, 0, 1])), u = v3.cross(r, f);
+    const s = 2 * this.dist * Math.tan(this.fov / 2) / h;
+    this.target = v3.add(this.target, v3.add(v3.mul(r, -dx * s), v3.mul(u, dy * s)));
+  }
+  zoom(f) { this.anim = null; this.dist = clamp(this.dist * f, this.minDist, this.maxDist); }
+  setHome(target, dist) { this.home = { target: target.slice(), dist }; this.minDist = dist * 0.08; this.maxDist = dist * 12; }
+  goTo(az, el, dist, target, ms = 550) {
+    // kürzester Weg für den Winkel
+    let d = (az - this.az) % (2 * Math.PI);
+    if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+    this.anim = { t0: performance.now(), ms, from: { az: this.az, el: this.el, dist: this.dist, target: this.target.slice() }, to: { az: this.az + d, el, dist, target: target.slice() } };
+  }
+  // Ansichten relativ zur Windrichtung: Seite und Oben zeigen den Wind von links nach rechts
+  preset(name) {
+    if (!this.home) return;
+    const P = { '3d': [35, 18], seite: [90, 0], oben: [90, 89], vorn: [0, 0] }[name] || [35, 18];
+    const dist = this.home.dist * (name === '3d' ? 1 : 1.05);
+    this.goTo(this.windAz + P[0] * DEG, Math.min(P[1], 88.5) * DEG, dist, this.home.target);
+  }
+  update(now) {
+    const a = this.anim;
+    if (!a) return false;
+    const t = clamp((now - a.t0) / a.ms, 0, 1), k = t * t * (3 - 2 * t);
+    this.az = lerp(a.from.az, a.to.az, k); this.el = lerp(a.from.el, a.to.el, k); this.dist = lerp(a.from.dist, a.to.dist, k);
+    this.target = [0, 1, 2].map(i => lerp(a.from.target[i], a.to.target[i], k));
+    if (t >= 1) this.anim = null;
+    return true;
+  }
+}
+
+function attachCameraInput(el, cam, onChange) {
+  const pts = new Map();
+  let mode = 'orbit', lastPinch = 0, lastMid = null;
+  el.addEventListener('contextmenu', e => e.preventDefault());
+  el.addEventListener('pointerdown', e => {
+    el.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    mode = (e.button === 2 || e.button === 1 || e.shiftKey || e.ctrlKey) ? 'pan' : 'orbit';
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      lastPinch = Math.hypot(a.x - b.x, a.y - b.y); lastMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+    onChange('start');
+  });
+  el.addEventListener('pointermove', e => {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (pts.size === 1) {
+      if (mode === 'pan') cam.pan(dx, dy, el.clientHeight); else cam.orbit(dx, dy);
+    } else if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (lastPinch > 0) cam.zoom(lastPinch / Math.max(d, 1));
+      if (lastMid) cam.pan(mid.x - lastMid.x, mid.y - lastMid.y, el.clientHeight);
+      lastPinch = d; lastMid = mid;
+    }
+    onChange('move');
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) { lastPinch = 0; lastMid = null; } };
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', e => { e.preventDefault(); cam.zoom(Math.exp(clamp(e.deltaY, -200, 200) * 0.0012)); onChange('move'); }, { passive: false });
+  el.addEventListener('dblclick', () => { cam.preset('3d'); onChange('move'); });
+}
+
+// ---------- 8. Bedienung und Ablauf ----------
+const $ = (s) => document.querySelector(s);
+const QS = new URLSearchParams(location.search);
+const TEST = QS.has('test');
+if (QS.has('stoss')) COLLISION = QS.get('stoss');
+
+const ICONS = {
+  car: '<path d="M3.5 16.6h2.3a2.9 2.9 0 0 1 5.6 0h14.2a2.9 2.9 0 0 1 5.6 0h2.3v-3.4c0-1.2-.8-2-2-2.3l-5.4-1.2-4.5-3.4a4.6 4.6 0 0 0-2.8-1h-7.1c-1.2 0-2.2.5-3 1.4L7.4 10H5.6c-1.2 0-2.1.9-2.1 2.1z"/><circle cx="8.6" cy="16.9" r="2.4"/><circle cx="28.4" cy="16.9" r="2.4"/>',
+  truck: '<path d="M2.5 15.8V4.5h21v11.3M23.5 8.2h5.3c.8 0 1.5.4 1.9 1l3.2 4.4c.3.4.4.9.4 1.4v1.5H31.6M23.5 16.6H11.3M5.5 16.6h-3"/><circle cx="8.4" cy="17.4" r="2.6"/><circle cx="28.6" cy="17.4" r="2.6"/>',
+  wing: '<path d="M2.5 13.2c4.6-5.2 12.2-6.8 20.6-5.7 5 .7 9 2.4 12.4 4.6-6.4 1.3-14.3 2-22 2.1-4.4.1-8.2-.2-11-1z"/>',
+  sphere: '<circle cx="19" cy="12" r="8.6"/><path d="M14.2 8.8a5.8 5.8 0 0 1 4-2.4"/>',
+  house: '<path d="M6.5 21V11.5L18 4l11.5 7.5V21zM15 21v-5.5h5V21M23.5 8V4.2h3v5.7"/>',
+  chimney: '<path d="M15.5 21.5V6.5h7v15M14 21.5h10M18.5 4.6c-1.2-1.3.7-2.4-.4-3.6M21.2 4.4c-1-1.1.6-2 -.3-3"/>',
+};
+
+const App = {
+  dev: null, renderer: null, sim: null, cam: new OrbitCam(),
+  model: null, upload: null, dom: null, preview: null,
+  wind: { yaw: 0, pitch: 0, speed: 30 },
+  level: 3, rec: 3, levelOk: LEVELS.map(() => true), customCells: null,
+  running: false, started: false, hasField: false, fieldDirty: false, building: false, buildToken: 0,
+  steps: 0, spf: 2, frameMs: 16, damp: 1, lastHealth: 0, avgReset: true,
+  rate: { t: 0, steps: 0, value: 0 },
+  view: { color: 'vel', lines: true, nLinesV: 50, seed: 'flaeche', row: 0.5, surface: true, slice: 'aus', slicePos: 0.5, avg: false, anim: !matchMedia('(prefers-reduced-motion: reduce)').matches },
+  mlups: 0, ctx: null, offscreen: null, lastHud: 0, pRef: 0, pRefN: 0,
+};
+
+const VEL_RANGE = 1.8;
+const FLOW_TIME = 25;     // Sekunden, in denen die Strömung bei der empfohlenen Stufe eingelaufen sein soll
+const nLinesOf = (v) => Math.round(10 * Math.pow(150, v / 100));
+
+// ---------- Rechengebiet ----------
+function windFrame(yawDeg, pitchDeg) {
+  const ps = yawDeg * DEG, th = pitchDeg * DEG;
+  const ex = [-Math.cos(th) * Math.cos(ps), -Math.cos(th) * Math.sin(ps), Math.sin(th)];
+  const ez = v3.norm(v3.sub([0, 0, 1], v3.mul(ex, ex[2])));
+  return { ex, ey: v3.cross(ez, ex), ez };
+}
+
+function cellsTarget() { return App.customCells || LEVELS[App.level].cells; }
+
+function makeDomain(model, wind, cells) {
+  const ground = !!model.meta.ground;
+  const { ex, ey, ez } = windFrame(wind.yaw, ground ? 0 : wind.pitch);
+  const P = model.mesh.pos, lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < P.length; i += 3) {
+    const p = [P[i], P[i + 1], P[i + 2]], q = [v3.dot(p, ex), v3.dot(p, ey), v3.dot(p, ez)];
+    for (let k = 0; k < 3; k++) { if (q[k] < lo[k]) lo[k] = q[k]; if (q[k] > hi[k]) hi[k] = q[k]; }
+  }
+  const E = [0, 1, 2].map(k => hi[k] - lo[k]), maxE = Math.max(...E);
+  const s = clamp(Math.cbrt(Math.max(E[0] * E[1] * E[2], 1e-12)), 0.3 * maxE, maxE);
+  const up = 1.2 * s, down = 3.0 * s, side = 1.0 * s, top = 1.0 * s, bottom = ground ? 0 : 1.0 * s;
+  const Lx = E[0] + up + down, Ly = E[1] + 2 * side, Lz = E[2] + top + bottom;
+  const dx = Math.cbrt(Lx * Ly * Lz / cells);
+  const nx = Math.max(24, Math.round(Lx / dx)), ny = Math.max(12, Math.round(Ly / dx)), nz = Math.max(12, Math.round(Lz / dx));
+  const q0 = [lo[0] - up + 0.5 * dx, (lo[1] + hi[1]) / 2 - ny * dx / 2 + 0.5 * dx, ground ? 0.5 * dx : (lo[2] + hi[2]) / 2 - nz * dx / 2 + 0.5 * dx];
+  const O = v3.add(v3.add(v3.mul(ex, q0[0]), v3.mul(ey, q0[1])), v3.mul(ez, q0[2]));
+  const l2w = m4.basis(ex, ey, ez, dx, O);
+  const w2l = new Float32Array([ex[0] / dx, ey[0] / dx, ez[0] / dx, 0, ex[1] / dx, ey[1] / dx, ez[1] / dx, 0, ex[2] / dx, ey[2] / dx, ez[2] / dx, 0,
+    -v3.dot(O, ex) / dx, -v3.dot(O, ey) / dx, -v3.dot(O, ez) / dx, 1]);
+  const mlo = [0, 1, 2].map(k => (lo[k] - q0[k]) / dx), mhi = [0, 1, 2].map(k => (hi[k] - q0[k]) / dx);
+  // Boden: glatt (Fahrzeuge) oder fest mit Windprofil (Gebäude)
+  const floor = !ground ? 0 : model.meta.ground === 'slip' ? 2 : 1;
+  const delta = floor === 1 ? clamp(2.5 * (mhi[2] + 0.5), 4, nz) : 0;
+  return { nx, ny, nz, N: nx * ny * nz, dx, ex, ey, ez, O, l2w, w2l, mlo, mhi, ground, floor, delta };
+}
+
+function meshToLattice(mesh, w2l) {
+  const t = new Float32Array(mesh.idx.length * 3), P = mesh.pos;
+  for (let i = 0; i < mesh.idx.length; i++) {
+    const v = mesh.idx[i] * 3, x = P[v], y = P[v + 1], z = P[v + 2];
+    t[i * 3] = w2l[0] * x + w2l[4] * y + w2l[8] * z + w2l[12];
+    t[i * 3 + 1] = w2l[1] * x + w2l[5] * y + w2l[9] * z + w2l[13];
+    t[i * 3 + 2] = w2l[2] * x + w2l[6] * y + w2l[10] * z + w2l[14];
+  }
+  return t;
+}
+
+function physParams() {
+  const d = App.dom, U = App.wind.speed;
+  const nuPhys = NU_AIR * U_LB / (U * d.dx);
+  const nu = Math.max(nuPhys, (QS.has('nu') ? +QS.get('nu') : NU_MIN) * App.damp);
+  return { tau0: 0.5 + 3 * nu, floor: d.floor, delta: d.delta, nuPhys, nu, cs: QS.has('cs') ? +QS.get('cs') : null, sponge: QS.has('sponge') ? +QS.get('sponge') : null, noise: QS.has('noise') ? +QS.get('noise') : null };
+}
+
+// ---------- Neuaufbau bei Modell-, Wind- oder Genauigkeitswechsel ----------
+// Aufbauten laufen nacheinander; ein neuer Auftrag macht ältere, noch wartende überflüssig.
+function rebuild() {
+  const token = ++App.buildToken;
+  if (App.running) App.resumeAfterBuild = true;
+  App.running = false; App.building = true; App.hasField = false; App.started = false;
+  updateRunButton();
+  showBusy('Gitter wird erstellt …');
+  App.buildChain = (App.buildChain || Promise.resolve()).then(() => doRebuild(token)).catch(e => console.error(e));
+  return App.buildChain;
+}
+
+async function doRebuild(token) {
+  await new Promise(r => setTimeout(r, 30));
+  if (token !== App.buildToken) return;
+  try {
+    const dom = makeDomain(App.model, App.wind, cellsTarget());
+    const tri = meshToLattice(App.model.mesh, dom.w2l);
+    const vox = voxelize(tri, dom.nx, dom.ny, dom.nz);
+    if (QS.has('leer')) { vox.solid.fill(0); vox.count = 0; }
+    const info = buildInfo(vox.solid, dom.nx, dom.ny, dom.nz);
+    if (token !== App.buildToken) return;
+    App.renderer.setSim(null);
+    await App.sim.build(dom, info, vox.solid, App.renderer.tracePipe, App.renderer.sampler);
+    if (token !== App.buildToken) return;
+    dom.solidCount = vox.count; dom.openMesh = vox.openMesh;
+    App.dom = dom; App.preview = null;
+    App.renderer.setSim(App.sim);
+    App.sim.setParams(physParams());
+    updateSeeds();
+    App.steps = 0; App.avgReset = true;
+    hideBusy();
+    App.building = false;
+    if (vox.count === 0) toast('Das Modell ist kleiner als eine Zelle. Bitte größer machen oder die Genauigkeit erhöhen.');
+    else if (vox.openMesh) toast('Das Modell ist nicht ganz geschlossen. Es wird als dünne Wand gerechnet.');
+    updateLevelUI(); updateHud(true);
+    if (App.resumeAfterBuild) { App.resumeAfterBuild = false; startRun(); }
+  } catch (e) {
+    console.error(e);
+    hideBusy();
+    App.building = false;
+    if (e.oom && App.level > 0 && !App.customCells) {
+      App.levelOk[App.level] = false;
+      App.level--;
+      toast('Für diese Genauigkeit reicht der Grafikspeicher nicht. Es wird eine Stufe gröber gerechnet.');
+      updateLevelUI();
+      rebuild();
+      return;
+    }
+    fatal('Das Gitter ließ sich nicht anlegen', String(e.message || e));
+    return;
+  }
+  App.building = false;
+}
+
+function updateSeeds() {
+  const d = App.dom;
+  if (!d || !App.sim.r) return;
+  const n = nLinesOf(App.view.nLinesV), lo = d.mlo, hi = d.mhi;
+  const W = hi[1] - lo[1], H = hi[2] - lo[2], Lm = Math.max(W, H, hi[0] - lo[0]);
+  const xs = Math.max(1, lo[0] * 0.45);
+  // Startfläche: Stirnfläche des Modells mit etwas Rand, bei flachen Modellen mindestens 30 % der Modellgröße
+  let y0 = lo[1] - 0.08 * W - 1, y1 = hi[1] + 0.08 * W + 1;
+  let z0 = d.ground ? 0.9 : lo[2] - 0.1 * H - 1, z1 = hi[2] + 0.12 * H + 1;
+  const minS = 0.3 * Lm;
+  if (y1 - y0 < minS) { const c = (y0 + y1) / 2; y0 = c - minS / 2; y1 = c + minS / 2; }
+  if (z1 - z0 < minS) { if (d.ground) z1 = z0 + minS; else { const c = (z0 + z1) / 2; z0 = c - minS / 2; z1 = c + minS / 2; } }
+  y0 = clamp(y0, 0.5, d.ny - 1.5); y1 = clamp(y1, 0.5, d.ny - 1.5);
+  z0 = clamp(z0, 0.5, d.nz - 1.5); z1 = clamp(z1, 0.5, d.nz - 1.5);
+  const pts = [];
+  let seedR = 12345;
+  const rnd = () => { seedR = (seedR * 1103515245 + 12345) & 0x7fffffff; return seedR / 0x7fffffff; };
+  if (App.view.seed === 'reihe') {
+    const z = lerp(z0, z1, App.view.row), m = Math.min(n, 120);
+    for (let i = 0; i < m; i++) pts.push(xs, lerp(y0, y1, (i + 0.5) / m), z, rnd());
+  } else {
+    const ny = Math.max(1, Math.round(Math.sqrt(n * (y1 - y0) / Math.max(z1 - z0, 1)))), nz = Math.max(1, Math.round(n / ny));
+    for (let j = 0; j < nz; j++) for (let i = 0; i < ny; i++) {
+      const jy = (rnd() - 0.5) * 0.35, jz = (rnd() - 0.5) * 0.35;
+      pts.push(xs, lerp(y0, y1, (i + 0.5 + jy) / ny), lerp(z0, z1, (j + 0.5 + jz) / nz), rnd());
+    }
+  }
+  App.sim.setSeeds(new Float32Array(pts));
+  App.fieldDirty = true;
+}
+
+// ---------- Start / Pause ----------
+function startRun() {
+  if (!App.dom || App.building) return;
+  App.running = true;
+  App.rate = { t: performance.now(), steps: App.steps, value: App.rate.value };
+  $('#startHint').classList.add('gone');
+  updateRunButton();
+}
+function pauseRun() { App.running = false; updateRunButton(); }
+function resetFlow() {
+  if (!App.dom) return;
+  App.started = false; App.steps = 0; App.hasField = false; App.avgReset = true;
+  if (!App.running) startRun();
+  updateHud(true);
+}
+function updateRunButton() {
+  const b = $('#runBtn');
+  b.textContent = App.running ? 'Anhalten' : (App.started ? 'Weiter' : 'Windkanal starten');
+  b.classList.toggle('running', App.running);
+}
+
+// ---------- Modelle ----------
+function selectExample(id) {
+  const ex = EXAMPLES.find(e => e.id === id) || EXAMPLES[0];
+  App.upload = null;
+  App.model = makeExample(ex);
+  App.wind.speed = ex.speed;
+  App.wind.pitch = ex.pitch;
+  modelChanged();
+}
+
+function modelChanged() {
+  const m = App.model;
+  App.renderer.setMesh(m.mesh);
+  App.silhouette = null;
+  const b = m.bounds, c = [0, 1, 2].map(k => (b.lo[k] + b.hi[k]) / 2);
+  const diag = Math.hypot(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1], b.hi[2] - b.lo[2]);
+  App.center = c;
+  App.cam.setHome(c, 1.55 * diag / Math.tan(App.cam.fov / 2) / 2 * 1.25);
+  App.cam.windAz = App.wind.yaw * DEG;
+  App.cam.target = c.slice(); App.cam.dist = App.cam.home.dist; App.cam.az = App.cam.windAz + 35 * DEG; App.cam.el = 18 * DEG; App.cam.anim = null;
+  App.damp = 1;
+  App.cam.minEl = m.meta.ground ? 0.5 * DEG : -1.48;
+  updateModelUI(); updateWindUI(); updateLegend();
+  rebuild();
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  const name = file.name, lower = name.toLowerCase();
+  try {
+    showBusy('Datei wird gelesen …');
+    let raw;
+    if (lower.endsWith('.obj')) raw = parseOBJ(await file.text());
+    else raw = parseSTL(await file.arrayBuffer());
+    raw = cleanTriangles(raw);
+    if (raw.length < 9) throw new Error('Die Datei enthält keine Dreiecke.');
+    if (raw.length / 9 > 3e6) throw new Error('Das Modell hat mehr als 3 Mio. Dreiecke. Bitte vorher vereinfachen.');
+    const ext = rawExtent(raw), rb = meshBounds(raw);
+    // liegt die Unterseite bei z = 0, steht das Modell vermutlich auf dem Boden
+    const onGround = Math.abs(rb.lo[2]) < 0.01 * ext && rb.hi[2] > 0;
+    App.upload = { raw, name, upY: false, turn: 0, ground: onGround, kind: 'fixed', size: ext > 50 ? ext / 1000 : ext, ext };
+    hideBusy();
+    applyUpload();
+    toast(`${name} geladen: ${fmt(raw.length / 9)} Dreiecke. Größe und Ausrichtung bitte prüfen.`);
+  } catch (e) {
+    hideBusy();
+    toast('Die Datei ließ sich nicht laden: ' + (e.message || e));
+  }
+}
+
+function applyUpload() {
+  const u = App.upload;
+  const tri = placeTriangles(u.raw, { upY: u.upY, turn: u.turn, size: u.size, ground: u.ground });
+  const mesh = meshFromTriangles(tri, COL.alu);
+  const meta = { id: 'datei', name: u.name, info: '', ground: u.ground ? u.kind : null, ref: u.size, refName: 'größte Länge', speed: App.wind.speed, pitch: 0 };
+  App.model = { meta, mesh, bounds: meshBounds(mesh.pos) };
+  modelChanged();
+}
+
+// ---------- Anzeige ----------
+function showBusy(t) { const b = $('#busy'); b.firstElementChild.textContent = t; b.hidden = false; }
+function hideBusy() { $('#busy').hidden = true; }
+let toastTimer = 0;
+function toast(t) {
+  const el = $('#toast'); el.textContent = t; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 5200);
+}
+function fatal(title, text, reload) {
+  $('#fatalTitle').textContent = title; $('#fatalText').textContent = text;
+  $('#fatalBtn').hidden = !reload; $('#fatal').hidden = false;
+}
+
+function yawWords(y) {
+  const a = Math.abs(y), side = y > 0 ? 'links' : 'rechts';
+  if (a <= 10) return 'von vorn';
+  if (a >= 170) return 'von hinten';
+  if (a >= 80 && a <= 100) return 'von ' + side;
+  return a < 90 ? `von ${side} vorn` : `von ${side} hinten`;
+}
+
+function updateModelUI() {
+  const m = App.model;
+  document.querySelectorAll('#models button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.id === m.meta.id)));
+  const up = App.upload;
+  $('#uploadOpts').hidden = !up;
+  if (up) {
+    $('#upName').textContent = up.name;
+    $('#upSize').value = (+up.size.toPrecision(4)).toLocaleString('de-DE', { maximumFractionDigits: 6, useGrouping: false });
+    setSeg('#upAxis', up.upY ? 'y' : 'z');
+    $('#upGround').checked = up.ground;
+    $('#upKindRow').style.display = up.ground ? '' : 'none';
+    setSeg('#upKind', up.kind);
+    const b = m.bounds;
+    $('#modelInfo').textContent = `Abmessungen ${fmtLen(b.hi[0] - b.lo[0])} lang, ${fmtLen(b.hi[1] - b.lo[1])} breit, ${fmtLen(b.hi[2] - b.lo[2])} hoch` + (up.ground ? (up.kind === 'slip' ? ', steht auf glattem Boden wie eine Fahrbahn.' : ', steht auf festem Boden im Wind mit Höhenprofil.') : ', schwebt frei.');
+  } else {
+    $('#modelInfo').textContent = m.meta.info + (m.meta.ground === 'slip' ? '. Boden ohne Reibung, wie im Fahrzeug-Windkanal mit Laufband.' : m.meta.ground === 'fixed' ? '. Fester Boden, Wind mit Höhenprofil.' : '. Schwebt frei im Luftstrom.');
+  }
+  $('#pitchRow').style.display = m.meta.ground ? 'none' : '';
+}
+
+function updateWindUI() {
+  const w = App.wind;
+  $('#yawTxt').textContent = fmt(w.yaw) + '°';
+  $('#yawWord').textContent = yawWords(w.yaw);
+  $('#dial').setAttribute('aria-valuenow', w.yaw);
+  $('#pitch').value = w.pitch;
+  $('#pitchOut').textContent = w.pitch === 0 ? 'waagerecht' : `${fmt(Math.abs(w.pitch))}° ${w.pitch > 0 ? 'von unten' : 'von oben'}`;
+  $('#speed').value = w.speed;
+  $('#speedOut').textContent = `${fmt(w.speed)} m/s`;
+  $('#speed').title = `${fmt(w.speed * 3.6)} km/h`;
+  drawDial();
+}
+
+function updateLevelUI() {
+  const wrap = $('#levels');
+  [...wrap.children].forEach((b, i) => {
+    b.classList.toggle('on', i < App.level && !App.customCells);
+    b.classList.toggle('sel', i === App.level && !App.customCells);
+    b.classList.toggle('rec', i === App.rec);
+    b.disabled = !App.levelOk[i];
+    b.setAttribute('aria-checked', String(i === App.level));
+  });
+  const d = App.dom;
+  const cells = d ? d.N : cellsTarget();
+  let t = App.customCells ? `Eigene Zellenzahl: ${fmtBig(cells)} Zellen` : `Stufe ${App.level + 1} von ${LEVELS.length}, ${LEVELS[App.level].name}: ${fmtBig(cells)} Zellen`;
+  if (d && App.model) {
+    const len = (d.mhi[0] - d.mlo[0]);
+    t += `, je Zelle ${fmtLen(d.dx)}. Das Modell ist in Windrichtung etwa ${fmt(len)} Zellen lang.`;
+  }
+  $('#levelTxt').textContent = t;
+  $('#recTxt').textContent = App.mlups > 0
+    ? `Empfehlung für diese Grafikkarte: Stufe ${App.rec + 1} (grüner Punkt). Sie rechnet etwa ${fmtBig(App.mlups * 1e6)} Zellen je Sekunde.`
+    : '';
+}
+
+function updateLegend() {
+  const U = App.wind.speed, q = 0.5 * RHO_AIR * U * U;
+  const vel = App.view.color === 'vel';
+  const lut = hexLut(vel ? CMAP_VEL : CMAP_PRES);
+  const stops = [];
+  for (let i = 0; i <= 16; i++) { const c = lut[Math.round(i / 16 * (lut.length - 1))]; stops.push(`rgb(${c[0]},${c[1]},${c[2]}) ${i / 16 * 100}%`); }
+  $('#legBar').style.background = `linear-gradient(90deg, ${stops.join(',')})`;
+  $('#legTitle').textContent = vel ? 'Geschwindigkeit in m/s' : 'Druck gegenüber der Umgebung in Pa';
+  const ticks = [];
+  if (vel) {
+    const max = VEL_RANGE * U, st = niceStep(max, 4), dec = st < 1 ? (st < 0.1 ? 2 : 1) : 0;
+    for (let v = 0; v <= max * 1.0001; v += st) ticks.push([v / max, fmt(v, dec)]);
+  } else {
+    const st = niceStep(q, 2), dec = st < 1 ? (st < 0.1 ? 2 : 1) : 0;
+    for (let k = -Math.floor(q / st + 1e-9); k * st <= q * 1.0001; k++) ticks.push([(k * st / q + 1) / 2, (k > 0 ? '+' : k < 0 ? '−' : '') + fmt(Math.abs(k * st), dec)]);
+  }
+  $('#legTicks').innerHTML = ticks.map(([p, l]) => `<span style="left:${p * 100}%;transform:translateX(${p < 0.04 ? 0 : p > 0.96 ? -100 : -50}%)">${l}</span>`).join('');
+}
+
+// runde Schrittweite für eine Skala mit etwa n Abschnitten
+function niceStep(range, n) {
+  const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 2.25 ? 2 : f < 3.5 ? 2.5 : f < 7.5 ? 5 : 10) * p;
+}
+
+function updateHud(force) {
+  const now = performance.now();
+  if (!force && now - App.lastHud < 300) return;
+  App.lastHud = now;
+  const d = App.dom;
+  let st = 'bereit';
+  if (App.building) st = 'Gitter wird erstellt';
+  else if (d && App.started) {
+    const passes = App.steps * U_LB / d.nx;
+    const pct = Math.min(100, Math.round(passes / 2 * 100));
+    st = (App.running ? (pct < 100 ? `läuft, eingelaufen zu ${pct} %` : 'läuft, eingelaufen') : 'angehalten');
+  } else if (App.running) st = 'startet';
+  $('#hudState').textContent = st;
+  const r = App.rate;
+  if (App.running && now - r.t > 900) { r.value = (App.steps - r.steps) * 1000 / (now - r.t); r.t = now; r.steps = App.steps; }
+  $('#hudSpeed').textContent = App.running && r.value > 0 ? `${fmt(r.value)} je Sekunde` : (App.started ? `${fmtBig(App.steps)} gerechnet` : '–');
+  if (App.model) {
+    const Re = App.wind.speed * App.model.meta.ref / NU_AIR;
+    let t = fmtBig(Re);
+    if (d) {
+      const p = physParams(), ReSim = U_LB * (App.model.meta.ref / d.dx) / p.nu;
+      if (ReSim < Re * 0.9) t += ` (im Gitter ${fmtBig(ReSim)})`;
+    }
+    $('#hudRe').textContent = t;
+  }
+}
+
+// ---------- Drehteller für die Windrichtung ----------
+function drawDial() {
+  const c = $('#dial'), dpr = Math.min(2, devicePixelRatio || 1), S = 148;
+  if (c.width !== S * dpr) { c.width = S * dpr; c.height = S * dpr; }
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, S, S);
+  const cx = S / 2, cy = S / 2, R = S / 2 - 3;
+  g.fillStyle = '#0f161d'; g.beginPath(); g.arc(cx, cy, R, 0, 2 * Math.PI); g.fill();
+  g.strokeStyle = '#2c3a48'; g.lineWidth = 1; g.stroke();
+  g.beginPath(); g.arc(cx, cy, R - 15, 0, 2 * Math.PI); g.strokeStyle = '#1f2a35'; g.stroke();
+  for (let a = 0; a < 360; a += 15) {
+    const t = a * DEG, r0 = a % 90 === 0 ? R - 10 : R - 5;
+    g.beginPath(); g.moveTo(cx - Math.sin(t) * r0, cy - Math.cos(t) * r0); g.lineTo(cx - Math.sin(t) * (R - 1), cy - Math.cos(t) * (R - 1));
+    g.strokeStyle = a % 90 === 0 ? '#6c7b8a' : '#3b4a59'; g.lineWidth = a % 90 === 0 ? 1.6 : 1; g.stroke();
+  }
+  // Umriss des Modells von oben, Front nach oben
+  if (!App.silhouette && App.model) App.silhouette = makeSilhouette(App.model.mesh, R - 30);
+  if (App.silhouette) g.drawImage(App.silhouette, cx - App.silhouette.width / 2 / dpr, cy - App.silhouette.height / 2 / dpr, App.silhouette.width / dpr, App.silhouette.height / dpr);
+  g.fillStyle = '#6f7d8b'; g.font = '10.5px ' + getComputedStyle(document.body).fontFamily; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const near = Math.abs(App.wind.yaw) < 25;
+  g.fillText('vorn', cx + (near ? (App.wind.yaw >= 0 ? 20 : -20) : 0), cy - R + 21);
+  // Windpfeil
+  const t = App.wind.yaw * DEG, rT = R - 4, rH = R - 33;
+  const tx = cx - Math.sin(t) * rT, ty = cy - Math.cos(t) * rT, hx = cx - Math.sin(t) * rH, hy = cy - Math.cos(t) * rH;
+  g.strokeStyle = '#f4b740'; g.fillStyle = '#f4b740'; g.lineWidth = 3; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(tx, ty); g.lineTo(hx + Math.sin(t) * 7, hy + Math.cos(t) * 7); g.stroke();
+  const px = Math.cos(t), py = -Math.sin(t);
+  g.beginPath(); g.moveTo(hx, hy);
+  g.lineTo(hx + Math.sin(t) * 11 + px * 6, hy + Math.cos(t) * 11 + py * 6);
+  g.lineTo(hx + Math.sin(t) * 11 - px * 6, hy + Math.cos(t) * 11 - py * 6); g.closePath(); g.fill();
+  g.beginPath(); g.arc(tx, ty, 5.5, 0, 2 * Math.PI); g.fill();
+}
+
+function makeSilhouette(mesh, rad) {
+  const dpr = Math.min(2, devicePixelRatio || 1), size = Math.ceil(rad * 2 * dpr);
+  const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
+  const g = cv.getContext('2d'), P = mesh.pos, I = mesh.idx;
+  let ext = 0;
+  for (let i = 0; i < P.length; i += 3) ext = Math.max(ext, Math.abs(P[i]), Math.abs(P[i + 1]));
+  const k = rad * dpr / (ext || 1) * 0.98, c = size / 2;
+  g.fillStyle = '#aab7c4';
+  g.beginPath();
+  for (let t = 0; t < I.length; t += 3) {
+    const q = [0, 1, 2].map(j => { const v = I[t + j] * 3; return [c - P[v + 1] * k, c - P[v] * k]; });
+    const area = (q[1][0] - q[0][0]) * (q[2][1] - q[0][1]) - (q[2][0] - q[0][0]) * (q[1][1] - q[0][1]);
+    if (Math.abs(area) < 1e-9) continue;
+    const o = area > 0 ? [0, 1, 2] : [0, 2, 1];
+    g.moveTo(q[o[0]][0], q[o[0]][1]); g.lineTo(q[o[1]][0], q[o[1]][1]); g.lineTo(q[o[2]][0], q[o[2]][1]); g.closePath();
+  }
+  g.fill('nonzero');
+  return cv;
+}
+
+function setupDial() {
+  const c = $('#dial');
+  let drag = false;
+  const setFrom = (e) => {
+    const r = c.getBoundingClientRect(), dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2;
+    let a = Math.atan2(-dx, -dy) / DEG;
+    a = Math.round(a / 5) * 5; if (a <= -180) a += 360;
+    if (a !== App.wind.yaw) { App.wind.yaw = a; updateWindUI(); previewWind(); }
+  };
+  c.addEventListener('pointerdown', e => { drag = true; c.setPointerCapture(e.pointerId); setFrom(e); });
+  c.addEventListener('pointermove', e => { if (drag) setFrom(e); });
+  const end = () => { if (drag) { drag = false; commitWind(); } };
+  c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+  c.addEventListener('keydown', e => {
+    const s = e.shiftKey ? 15 : 5;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { App.wind.yaw = ((App.wind.yaw + s + 180) % 360 + 360) % 360 - 180; }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { App.wind.yaw = ((App.wind.yaw - s + 180) % 360 + 360) % 360 - 180; }
+    else return;
+    if (App.wind.yaw === -180) App.wind.yaw = 180;
+    e.preventDefault(); updateWindUI(); previewWind();
+  });
+  c.addEventListener('keyup', e => { if (e.key.startsWith('Arrow')) commitWind(); });
+}
+
+// Während des Ziehens: nur Pfeil und Kanal drehen, gerechnet wird erst beim Loslassen
+function previewWind() {
+  if (!App.model) return;
+  App.preview = makeDomain(App.model, App.wind, cellsTarget());
+}
+function commitWind() {
+  if (!App.model) return;
+  App.cam.windAz = App.wind.yaw * DEG;
+  const d = App.dom;
+  const f = windFrame(App.wind.yaw, App.model.meta.ground ? 0 : App.wind.pitch);
+  if (d && v3.dot(f.ex, d.ex) > 0.99999) { App.preview = null; return; }
+  rebuild();
+}
+
+// ---------- Szene für einen Frame ----------
+function sceneOf(now) {
+  const d = App.preview || App.dom;
+  const r = App.renderer, asp = r.size[0] / Math.max(1, r.size[1]);
+  const { eye, viewProj } = App.cam.matrices(asp);
+  const sl = App.view.slice;
+  const sc = {
+    viewProj, eye, time: now / 1000,
+    w2l: d ? d.w2l : new Float32Array(16), l2w: d ? d.l2w : new Float32Array(16),
+    dims: d ? [d.nx, d.ny, d.nz] : [1, 1, 1],
+    hasField: App.hasField && !App.preview,
+    lineWidth: (nLinesOf(App.view.nLinesV) > 700 ? 1.3 : nLinesOf(App.view.nLinesV) > 250 ? 1.7 : 2.1) * r.dpr,
+    colorMode: App.view.color === 'vel' ? 0 : 1,
+    velScale: 1 / (VEL_RANGE * U_LB), presScale: 1 / (3 * U_LB * U_LB),
+    surface: App.view.surface, pRef: App.pRef,
+    sliceAxis: sl === 'aus' ? -1 : { x: 0, y: 1, z: 2 }[sl],
+    slicePos: 0,
+    ground: App.model && !!App.model.meta.ground,
+    gridStep: 1, groundR: 10, center: App.center || [0, 0, 0],
+    pulsePeriod: 14 / U_LB, pulseRate: d ? d.nx / U_LB / 7 : 1, animate: App.view.anim,
+    lines: App.view.lines && App.sim && App.sim.r && App.sim.r.nSeeds > 0, nLines: App.sim && App.sim.r ? App.sim.r.nSeeds : 0, M: App.sim && App.sim.r ? App.sim.r.M : 2,
+    box: !!d, arrow: null,
+  };
+  if (d) {
+    const n = [d.nx, d.ny, d.nz][sc.sliceAxis] || 1;
+    sc.slicePos = -0.5 + App.view.slicePos * n;
+    const ext = Math.max(d.nx, d.ny, d.nz) * d.dx;
+    sc.groundR = ext * 1.25;
+    sc.gridStep = Math.pow(10, Math.round(Math.log10(Math.max(...[0, 1, 2].map(k => App.model.bounds.hi[k] - App.model.bounds.lo[k])) / 5)));
+    // Windpfeil vor und über dem Modell
+    const G = d.mlo[0], zt = d.mhi[2] + 0.25 * (d.mhi[2] - d.mlo[2]) + 2;
+    const tail = m4.point(d.l2w, [G * 0.12, (d.mlo[1] + d.mhi[1]) / 2, Math.min(zt, d.nz - 3)]);
+    const len = G * 0.5 * d.dx;
+    const ax = d.ex, ay = d.ey, az = d.ez;
+    // lokales z -> Windrichtung
+    sc.arrow = { model: new Float32Array([ay[0] * len, ay[1] * len, ay[2] * len, 0, az[0] * len, az[1] * len, az[2] * len, 0, ax[0] * len, ax[1] * len, ax[2] * len, 0, tail[0], tail[1], tail[2], 1]), tail };
+  }
+  return sc;
+}
+
+function placeWindLabel(sc) {
+  const el = $('#windLabel');
+  if (!sc.arrow) { el.style.display = 'none'; return; }
+  const p = m4.point(sc.viewProj, sc.arrow.tail);
+  const r = App.renderer, w = r.size[0] / r.dpr, h = r.size[1] / r.dpr;
+  const q = (() => { const v = sc.viewProj, t = sc.arrow.tail; const cw = v[3] * t[0] + v[7] * t[1] + v[11] * t[2] + v[15]; return cw; })();
+  if (q <= 0) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.textContent = `Wind ${fmt(App.wind.speed)} m/s`;
+  el.style.transform = `translate(${(p[0] * 0.5 + 0.5) * w}px, ${(0.5 - p[1] * 0.5) * h}px) translate(-50%, -150%)`;
+}
+
+// ---------- Hauptschleife ----------
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = now - (App.lastNow || now);
+  App.lastNow = now;
+  if (dt > 0 && dt < 1000) App.frameMs = lerp(App.frameMs, dt, 0.12);
+  App.cam.update(now);
+  if (!TEST || App.autoFrames) renderFrame(now);
+  updateHud(false);
+}
+
+function renderFrame(now, stepsOverride) {
+  const r = App.renderer, dev = App.dev;
+  const cv = $('#view'), dpr = Math.min(2, devicePixelRatio || 1);
+  r.dpr = dpr;
+  const W = Math.max(1, Math.round(cv.clientWidth * dpr)), H = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (!TEST && (cv.width !== W || cv.height !== H)) { cv.width = W; cv.height = H; }
+  r.resize(W, H);
+  const enc = dev.createCommandEncoder();
+  const sim = App.sim;
+  if (sim.r && !App.building && App.dom) {
+    if (App.running || stepsOverride) {
+      if (!App.started) { sim.init(enc); App.started = true; App.steps = 0; App.avgReset = true; App.pRef = 0; App.pRefN = 0; }
+      let k = stepsOverride || App.spf;
+      if (!stepsOverride) {
+        if (App.frameMs > 21) App.spf = Math.max(1, Math.floor(App.spf * 0.85));
+        else if (App.frameMs < 17.8) App.spf = Math.min(60, App.spf + Math.max(1, Math.round(App.spf * 0.08)));
+      }
+      sim.steps(enc, k);
+      App.steps += k;
+      App.kSince = (App.kSince || 0) + k;
+      App.fieldDirty = true;
+      if (now - App.lastHealth > 500) { App.lastHealth = now; checkHealth(); }
+    }
+    if (App.fieldDirty && App.started) {
+      let mode = 0, alpha = 1;
+      if (App.view.avg) {
+        mode = 1;
+        alpha = App.avgReset ? 1 : 1 - Math.exp(-(App.kSince || 0) * U_LB / App.dom.nx);
+        App.avgReset = false;
+      }
+      sim.copy(enc, mode, alpha);
+      App.kSince = 0;
+      if (App.view.lines) sim.trace(enc);
+      App.fieldDirty = false;
+      App.hasField = true;
+    }
+  }
+  const sc = sceneOf(now);
+  const target = TEST ? App.offView(W, H) : App.ctx.getCurrentTexture().createView();
+  r.draw(enc, target, sc);
+  dev.queue.submit([enc.finish()]);
+  placeWindLabel(sc);
+  return sc;
+}
+
+async function checkHealth() {
+  const sim = App.sim;
+  if (!sim.r || App.checking) return;
+  App.checking = true;
+  try {
+    const st = await sim.readStats();
+    if (st && st.pRef !== null && Number.isFinite(st.pRef)) App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.5) : st.pRef;
+    const bad = st && !(st.umax < 3.3 * U_LB);
+    if (bad && App.running && App.started) {
+      App.damp = Math.min(App.damp * 4, 300);
+      sim.setParams(physParams());
+      toast('Die Rechnung ist instabil geworden und wurde mit etwas mehr Dämpfung neu gestartet.');
+      App.started = false; App.steps = 0; App.hasField = false;
+    }
+  } catch (e) { /* ignorieren */ }
+  App.checking = false;
+}
+
+// ---------- Leistungstest der Grafikkarte ----------
+async function benchmark() {
+  const dev = App.dev, nx = 96, ny = 48, nz = 48, N = nx * ny * nz;
+  const sim = new Sim(dev);
+  const dom = { nx, ny, nz };
+  try {
+    await sim.build(dom, new Uint32Array(N), new Uint8Array(N), App.renderer.tracePipe, App.renderer.sampler);
+    sim.setParams({ tau0: 0.52, floor: 0, delta: 0 });
+    let enc = dev.createCommandEncoder(); sim.init(enc); sim.steps(enc, 4); dev.queue.submit([enc.finish()]);
+    await dev.queue.onSubmittedWorkDone();
+    let steps = 0, t0 = performance.now(), batch = 4;
+    while (performance.now() - t0 < 140 && steps < 4000) {
+      enc = dev.createCommandEncoder(); sim.steps(enc, batch); dev.queue.submit([enc.finish()]);
+      await dev.queue.onSubmittedWorkDone();
+      steps += batch; batch = Math.min(64, batch * 2);
+    }
+    const ms = performance.now() - t0;
+    App.mlups = N * steps / ms / 1000;
+  } catch (e) { App.mlups = 0; }
+  sim.destroy();
+}
+
+// ---------- Bedienelemente verdrahten ----------
+function setSeg(sel, v) { document.querySelectorAll(sel + ' button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
+function onSeg(sel, fn) { document.querySelectorAll(sel + ' button').forEach(b => b.addEventListener('click', () => { setSeg(sel, b.dataset.v); fn(b.dataset.v); })); }
+
+function buildUI() {
+  const models = $('#models');
+  for (const ex of EXAMPLES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.id = ex.id; b.setAttribute('role', 'radio'); b.title = ex.info;
+    b.innerHTML = `<svg viewBox="0 0 38 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${ICONS[ex.icon]}</svg><span>${ex.name}</span>`;
+    b.addEventListener('click', () => selectExample(ex.id));
+    models.appendChild(b);
+  }
+  $('#fileBtn').addEventListener('click', () => $('#fileIn').click());
+  $('#fileIn').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
+  $('#upSize').addEventListener('change', e => {
+    const v = parseFloat(String(e.target.value).trim().replace(/\s/g, '').replace(',', '.'));
+    if (v > 0 && v < 1e5 && App.upload) { App.upload.size = v; applyUpload(); }
+    else if (App.upload) { toast('Bitte eine Länge in Metern eingeben, zum Beispiel 4,5.'); updateModelUI(); }
+  });
+  $('#upSize').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+  onSeg('#upAxis', v => {
+    if (!App.upload) return;
+    App.upload.upY = v === 'y';
+    // Bodenerkennung für die neue Hochachse wiederholen
+    const k = App.upload.upY ? 1 : 2, b = meshBounds(App.upload.raw);
+    App.upload.ground = Math.abs(b.lo[k]) < 0.01 * App.upload.ext && b.hi[k] > 0;
+    applyUpload();
+  });
+  $('#upTurn').addEventListener('click', () => { if (App.upload) { App.upload.turn = (App.upload.turn + 1) % 4; applyUpload(); } });
+  $('#upGround').addEventListener('change', e => { if (App.upload) { App.upload.ground = e.target.checked; applyUpload(); } });
+  onSeg('#upKind', v => { if (App.upload) { App.upload.kind = v; applyUpload(); } });
+
+  setupDial();
+  $('#pitch').addEventListener('input', e => { App.wind.pitch = +e.target.value; updateWindUI(); previewWind(); });
+  $('#pitch').addEventListener('change', () => commitWind());
+  $('#speed').addEventListener('input', e => {
+    App.wind.speed = +e.target.value; updateWindUI(); updateLegend(); updateHud(true);
+    if (App.dom && App.sim.r) App.sim.setParams(physParams());
+  });
+
+  const lv = $('#levels');
+  LEVELS.forEach((L, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'radio');
+    b.style.height = (30 + 70 * i / (LEVELS.length - 1)) + '%';
+    b.title = `Stufe ${i + 1}: ${L.name}, ${fmtBig(L.cells)} Zellen`;
+    b.setAttribute('aria-label', b.title);
+    b.addEventListener('click', () => { if (App.level === i && !App.customCells) return; App.level = i; App.customCells = null; App.damp = 1; updateLevelUI(); rebuild(); });
+    lv.appendChild(b);
+  });
+
+  $('#runBtn').addEventListener('click', () => { App.running ? pauseRun() : startRun(); });
+  $('#resetBtn').addEventListener('click', () => resetFlow());
+
+  onSeg('#colorSeg', v => { App.view.color = v; updateLegend(); });
+  $('#linesChk').addEventListener('change', e => { App.view.lines = e.target.checked; $('#lineOpts').style.display = e.target.checked ? '' : 'none'; App.fieldDirty = true; });
+  $('#nLines').addEventListener('input', e => { App.view.nLinesV = +e.target.value; $('#nLinesOut').textContent = fmt(nLinesOf(App.view.nLinesV)); updateSeeds(); });
+  onSeg('#seedSeg', v => { App.view.seed = v; $('#rowRow').style.display = v === 'reihe' ? '' : 'none'; updateSeeds(); });
+  $('#rowPos').addEventListener('input', e => { App.view.row = e.target.value / 1000; $('#rowOut').textContent = fmt(App.view.row * 100) + ' %'; updateSeeds(); });
+  $('#surfChk').addEventListener('change', e => { App.view.surface = e.target.checked; });
+  onSeg('#sliceSeg', v => { App.view.slice = v; App.view.slicePos = defaultSlicePos(v); syncSlice(); });
+  $('#slicePos').addEventListener('input', e => { App.view.slicePos = e.target.value / 1000; syncSlice(); });
+  $('#avgChk').addEventListener('change', e => { App.view.avg = e.target.checked; App.avgReset = true; App.fieldDirty = true; });
+  $('#animChk').addEventListener('change', e => { App.view.anim = e.target.checked; });
+
+  document.querySelectorAll('#views button').forEach(b => b.addEventListener('click', () => App.cam.preset(b.dataset.v)));
+  $('#helpBtn').addEventListener('click', () => { $('#help').hidden = false; const c = $('#help .card'); c.scrollTop = 0; c.focus({ preventScroll: true }); });
+  $('#helpClose').addEventListener('click', () => { $('#help').hidden = true; });
+  $('#help').addEventListener('click', e => { if (e.target.id === 'help') $('#help').hidden = true; });
+  $('#fatalBtn').addEventListener('click', () => location.reload());
+
+  window.addEventListener('keydown', e => {
+    if (e.target.closest('input, button, [role=slider]') && e.key !== 'Escape') return;
+    if (e.key === ' ') { e.preventDefault(); App.running ? pauseRun() : startRun(); }
+    else if (e.key === 'r' || e.key === 'R') resetFlow();
+    else if (e.key === 'h' || e.key === 'H') $('#help').hidden = !$('#help').hidden;
+    else if (e.key === 'Escape') $('#help').hidden = true;
+  });
+  // Datei ins Fenster ziehen
+  let dragDepth = 0;
+  window.addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Files')) { dragDepth++; $('#drop').hidden = false; e.preventDefault(); } });
+  window.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('#drop').hidden = true; });
+  window.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; $('#drop').hidden = true; if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+  // Anfangswerte der Darstellung
+  setSeg('#colorSeg', App.view.color);
+  $('#linesChk').checked = App.view.lines;
+  $('#nLines').value = App.view.nLinesV; $('#nLinesOut').textContent = fmt(nLinesOf(App.view.nLinesV));
+  setSeg('#seedSeg', App.view.seed); $('#rowRow').style.display = 'none';
+  $('#rowPos').value = App.view.row * 1000; $('#rowOut').textContent = fmt(App.view.row * 100) + ' %';
+  $('#surfChk').checked = App.view.surface;
+  setSeg('#sliceSeg', App.view.slice); syncSlice();
+  $('#avgChk').checked = App.view.avg;
+  $('#animChk').checked = App.view.anim;
+}
+
+function defaultSlicePos(v) {
+  const d = App.dom;
+  if (!d) return 0.5;
+  if (v === 'z') return d.ground ? clamp((0.45 * (d.mhi[2] + 0.5)) / d.nz, 0.02, 0.98) : clamp(((d.mlo[2] + d.mhi[2]) / 2 + 0.5) / d.nz, 0, 1);
+  if (v === 'y') return clamp(((d.mlo[1] + d.mhi[1]) / 2 + 0.5) / d.ny, 0, 1);
+  if (v === 'x') return clamp((d.mhi[0] + 0.6 * (d.mhi[0] - d.mlo[0]) + 0.5) / d.nx, 0, 1);
+  return 0.5;
+}
+
+function syncSlice() {
+  const v = App.view.slice;
+  $('#slicePosRow').style.display = v === 'aus' ? 'none' : '';
+  $('#slicePos').value = Math.round(App.view.slicePos * 1000);
+  const d = App.dom;
+  let t = '';
+  if (d && v !== 'aus') {
+    const k = { x: 0, y: 1, z: 2 }[v], n = [d.nx, d.ny, d.nz][k];
+    const L = -0.5 + App.view.slicePos * n;
+    if (v === 'z') t = d.ground ? fmtLen((L + 0.5) * d.dx) + ' hoch' : fmtLen(Math.abs(L - (d.mlo[2] + d.mhi[2]) / 2) * d.dx) + (L >= (d.mlo[2] + d.mhi[2]) / 2 ? ' darüber' : ' darunter');
+    else if (v === 'y') { const o = (L - (d.mlo[1] + d.mhi[1]) / 2) * d.dx; t = Math.abs(o) < d.dx ? 'Mitte' : fmtLen(Math.abs(o)) + ' seitlich'; }
+    else { t = L > d.mhi[0] ? fmtLen((L - d.mhi[0]) * d.dx) + ' dahinter' : L < d.mlo[0] ? fmtLen((d.mlo[0] - L) * d.dx) + ' davor' : 'im Modell'; }
+  }
+  $('#slicePosOut').textContent = t;
+}
+
+// ---------- 9. Start ----------
+async function main() {
+  buildUI();
+  if (!navigator.gpu) {
+    fatal('WebGPU fehlt', 'Dieser Browser kann hier kein WebGPU. Bitte die Seite in einem aktuellen Chrome oder Edge öffnen (in Firefox und Safari ab den Versionen von 2025).');
+    return;
+  }
+  let adapter = null;
+  try { adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }); } catch (e) { }
+  if (!adapter) { fatal('Keine passende Grafikkarte', 'Der Browser stellt keine Grafikkarte für WebGPU bereit. Eventuell hilft ein Treiber-Update oder ein anderer Browser.'); return; }
+  const L = adapter.limits;
+  const dev = await adapter.requestDevice({ requiredLimits: {
+    maxStorageBufferBindingSize: L.maxStorageBufferBindingSize, maxBufferSize: L.maxBufferSize,
+    maxStorageBuffersPerShaderStage: Math.min(8, L.maxStorageBuffersPerShaderStage), maxTextureDimension3D: L.maxTextureDimension3D,
+  } });
+  App.dev = dev;
+  dev.lost.then(info => { if (info.reason !== 'destroyed') fatal('Verbindung zur Grafikkarte verloren', 'Der Browser hat die Grafikkarte zurückgesetzt, vermutlich weil der Speicher nicht reichte. Bitte die Seite neu laden und eine gröbere Stufe wählen.', true); });
+  dev.onuncapturederror = e => console.error('WebGPU:', e.error.message);
+  const format = TEST ? 'rgba8unorm' : navigator.gpu.getPreferredCanvasFormat();
+  if (!TEST) {
+    App.ctx = $('#view').getContext('webgpu');
+    App.ctx.configure({ device: dev, format, alphaMode: 'opaque' });
+  } else {
+    let off = null;
+    App.offView = (w, h) => {
+      if (!off || off.width !== w || off.height !== h) {
+        if (off) off.destroy();
+        off = dev.createTexture({ size: [w, h], format, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
+        App.offTex = off;
+      }
+      return off.createView();
+    };
+  }
+  App.renderer = new Renderer(dev, format);
+  App.renderer.dpr = Math.min(2, devicePixelRatio || 1);
+  await App.renderer.createPipelines();
+  App.renderer.arrow = App.renderer.uploadMesh(buildArrowMesh());
+  App.sim = new Sim(dev);
+  attachCameraInput($('#view'), App.cam, () => $('#startHint').classList.add('gone'));
+
+  // Grenzen der Grafikkarte: welche Stufen passen?
+  const maxCells = Math.floor(Math.min(L.maxStorageBufferBindingSize, L.maxBufferSize) / (19 * 4));
+  App.levelOk = LEVELS.map(l => l.cells * 1.08 <= maxCells && l.cells <= 16e6);
+  if (!TEST || QS.has('bench')) await benchmark();
+  const okIdx = App.levelOk.map((ok, i) => ok ? i : -1).filter(i => i >= 0);
+  // Empfehlung: zwei Durchläufe der Luft durch den Kanal (etwa 20·nx Schritte, nx ≈ 2·∛Zellen) in höchstens 25 s
+  let rec = 0;
+  for (const i of okIdx) {
+    const c = LEVELS[i].cells, t = 20 * 2 * Math.cbrt(c) * c / (App.mlups * 1e6);
+    if (App.mlups > 0 && t <= FLOW_TIME) rec = i;
+  }
+  if (!App.mlups) rec = Math.min(2, okIdx[okIdx.length - 1]);
+  App.rec = rec; App.level = rec;
+  if (QS.has('stufe')) App.level = clamp(parseInt(QS.get('stufe'), 10) - 1, 0, LEVELS.length - 1);
+  if (QS.has('zellen')) App.customCells = Math.max(2000, parseInt(QS.get('zellen'), 10));
+
+  selectExample(QS.get('modell') || 'pkw');
+  updateLegend(); updateRunButton(); updateLevelUI();
+  requestAnimationFrame(frame);
+  if (QS.has('start')) { const wait = () => App.building || !App.dom ? setTimeout(wait, 50) : startRun(); wait(); }
+}
+
+// ---------- Prüfschnittstelle (für automatische Tests) ----------
+window.WK = {
+  App,
+  async waitReady() { while (!App.renderer || App.building || !App.dom) await new Promise(r => setTimeout(r, 40)); },
+  async step(n, batch = 20) {
+    for (let done = 0; done < n; done += batch) { renderFrame(performance.now(), Math.min(batch, n - done)); await App.dev.queue.onSubmittedWorkDone(); }
+  },
+  async render() { const sc = renderFrame(performance.now()); await App.dev.queue.onSubmittedWorkDone(); return sc; },
+  async capture() {
+    renderFrame(performance.now());
+    const dev = App.dev, tex = App.offTex, w = tex.width, h = tex.height, bpr = Math.ceil(w * 4 / 256) * 256;
+    const buf = dev.createBuffer({ size: bpr * h, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = dev.createCommandEncoder();
+    enc.copyTextureToBuffer({ texture: tex }, { buffer: buf, bytesPerRow: bpr }, [w, h]);
+    dev.queue.submit([enc.finish()]);
+    await buf.mapAsync(GPUMapMode.READ);
+    const src = new Uint8Array(buf.getMappedRange()), img = new ImageData(w, h);
+    for (let y = 0; y < h; y++) img.data.set(src.subarray(y * bpr, y * bpr + w * 4), y * w * 4);
+    buf.unmap(); buf.destroy();
+    const m = $('#mirror'); m.width = w; m.height = h; m.hidden = false;
+    m.getContext('2d').putImageData(img, 0, 0);
+    return [w, h];
+  },
+  readMacro: (a, b) => App.sim.readMacro(a, b),
+};
+
+main().catch(e => { console.error(e); fatal('Start fehlgeschlagen', String(e && e.message || e)); });
+
+</script>
+</body>
+</html>
