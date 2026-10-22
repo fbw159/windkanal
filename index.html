@@ -1569,6 +1569,7 @@ const WM_YP = [10, 30];                  // Übergang aufgelöste Wand -> Wandge
 const SST_DMAX = 1 / 6;                  // größte Diffusionszahl je Seite (k und ω; mit impliziter Mitte bis hier monoton)
 const ML_D = [2, 4];                     // wandnahe Mischungsweg-Viskosität: voll bis 2 Zellen Wandabstand, bei 4 Zellen null
 const ML_AP = 26;                        // Dämpfung nach van Driest (A+)
+const ABL_Z = [4, 6];                    // Untergrenze der Wirbelviskosität über rauem Boden: voll bis 4 Zellen Höhe, bei 6 Zellen null
 const KW_MIN = [1e-14, 1e-8];            // Untergrenzen für k und ω (Gittereinheiten)
 
 const WGSL_PRM = `
@@ -2073,7 +2074,16 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>, @builtin(num_workgroups) ng
   // bleibt sie, wenn er die nächste Wand ist
   let floorNear = floorT == 1u && dWall >= f32(z) + 0.499;
   let nearModel = !floorNear && dWall < prm.ext.y;
-  let nutML = prm.kin.w * select(prm.ext.z, 1.0, floorNear) * lmx * lmx * omg * dmp * dmp;
+  var nutML = prm.kin.w * select(prm.ext.z, 1.0, floorNear) * lmx * lmx * omg * dmp * dmp;
+  // Über rauem Boden (Gebäude) in den untersten Zellen die Wirbelviskosität der Bodengrenzschicht κ·u*·(z + z0) als
+  // Untergrenze: Mit ihr und der Schubspannung u*² ist das logarithmische Windprofil eine genaue Lösung (Richards & Hoxey).
+  // Ohne sie trug das Gitter den Impuls nicht bis zum Boden, die untersten Zellen verloren auf dem Weg zum Modell ihren
+  // Schwung (im leeren Kanal kehrte die Bodenzelle um). Voll bis ABL_Z0 Zellen Höhe, bei ABL_Z1 null, damit der Nachlauf
+  // des Gebäudes darüber nicht gedämpft wird.
+  if (floorT == 1u) {
+    let zh = f32(z) + 0.5;
+    nutML = max(nutML, prm.kin.w * ${wf(kap)} * prm.kin.z * (zh + prm.uin.y) * clamp((${wf(ABL_Z[1])} - zh) / ${wf(ABL_Z[1] - ABL_Z[0])}, 0.0, 1.0));
+  }
 `;
   if (!sst) {
     s += `  // WALE: verschwindet in reiner Scherung und an der Wand, erfasst Wirbel
@@ -2714,7 +2724,9 @@ function refTurb(mac, info, blist, bw, turb, P, sst, wd, kwi, kwo) {
     const dmp = 1 - Math.exp(-kap / ML_AP * dWall * dWall * omg / nu0);
     // laminare Grenzschicht am Modell (wie im Shader)
     const turbF = P.turb != null ? P.turb : 1, floorNear = P.floor === 1 && dWall >= z + 0.499, nearModel = !floorNear && dWall < mD1;
-    const nutML = (P.ml != null ? P.ml : 1) * (floorNear ? 1 : turbF) * lmx * lmx * omg * dmp * dmp;
+    let nutML = (P.ml != null ? P.ml : 1) * (floorNear ? 1 : turbF) * lmx * lmx * omg * dmp * dmp;
+    // Untergrenze über rauem Boden (wie im Shader)
+    if (P.floor === 1) { const zh = z + 0.5; nutML = Math.max(nutML, (P.ml != null ? P.ml : 1) * kap * (P.ustar || 0) * (zh + P.z0) * Math.min(Math.max((ABL_Z[1] - zh) / (ABL_Z[1] - ABL_Z[0]), 0), 1)); }
     let nutOut;
     if (!sst) {
       const h11 = g11 * g11 + g12 * g21 + g13 * g31, h12 = g11 * g12 + g12 * g22 + g13 * g32, h13 = g11 * g13 + g12 * g23 + g13 * g33;
