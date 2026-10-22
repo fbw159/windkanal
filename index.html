@@ -357,10 +357,10 @@ p.modetxt { margin: 8px 0 12px; }
     <p><b>Instationär</b> rechnet zeitgenau: Wirbel lösen sich ab und ziehen mit dem Wind davon. Die feinen Wirbel, die kleiner als eine Zelle sind, ersetzt ein Turbulenzmodell (WALE, Grobstruktursimulation). c<sub>W</sub> und c<sub>A</sub> werden nach dem Einlaufen über die Zeit gemittelt.</p>
     <p><b>Stationär</b> rechnet die zeitlich gemittelte Strömung mit dem k-ω-SST-Turbulenzmodell (RANS), so wie viele Ingenieurprogramme. Die Rechnung läuft, bis sich c<sub>W</sub> und c<sub>A</sub> nicht mehr ändern. Das dauert länger, das Bild ist dafür ruhig.</p>
     <h3>Was gerechnet wird</h3>
-    <p>Das Modell wird in Würfelzellen zerlegt. Für jede Zelle rechnet die Grafikkarte mit dem Lattice-Boltzmann-Verfahren, wie sich die Luft bewegt, mit der echten Zähigkeit der Luft. Die Wand liegt dabei an ihrer echten Stelle, auch zwischen den Zellmitten; Teile, die dünner als eine Zelle sind (etwa die Hinterkante eines Flügels), zählen trotzdem als Wand. Die Grenzschicht direkt an der Wand ist viel dünner als eine Zelle: Dort setzt ein Wandgesetz die Reibung an, und eine zusätzliche Zähigkeit in den Zellen an der Wand bringt den Schwung der Strömung bis an die Wand, so wie es die Turbulenz in der echten Grenzschicht tut.</p>
+    <p>Das Modell wird in Würfelzellen zerlegt. Für jede Zelle rechnet die Grafikkarte mit dem Lattice-Boltzmann-Verfahren, wie sich die Luft bewegt, mit der echten Zähigkeit der Luft. Die Wand liegt dabei an ihrer echten Stelle, auch zwischen den Zellmitten; Teile, die dünner als eine Zelle sind (etwa die Hinterkante eines Flügels), zählen trotzdem als Wand. Die Grenzschicht direkt an der Wand ist viel dünner als eine Zelle: Dort setzt ein Wandgesetz die Reibung an, und eine zusätzliche Zähigkeit in den Zellen an der Wand bringt den Schwung der Strömung bis an die Wand, so wie es die Turbulenz in der echten Grenzschicht tut. Spalte, die schmaler als eine Zelle sind (etwa zwischen Fahrerhaus und Koffer), gelten als ruhende Luft.</p>
     <p>Ob die Grenzschicht am Modell laminar oder turbulent ist, hängt von der Reynoldszahl ab (oben rechts): unter etwa 200 000 bleibt sie laminar und löst an Rundungen früh ab, über etwa 500 000 ist sie turbulent und liegt länger an, dazwischen gleitend. Deshalb fällt etwa der Widerstand der Kugel zwischen 3 und 5 m/s deutlich ab. Wo genau der Umschlag auf dem Modell liegt, rechnet die Seite nicht aus.</p>
     <p>Vorn strömt der Wind ein, seitlich, oben und hinten kann die Luft frei ein- und ausströmen. Bei Fahrzeugen ist der Boden glatt, ohne Reibung, ähnlich wie im Fahrzeug-Windkanal mit Laufband. Bei Gebäuden ist der Boden rau und der Wind nimmt mit der Höhe zu; die angegebene Geschwindigkeit gilt in Höhe des Gebäudes.</p>
-    <p>c<sub>W</sub> und c<sub>A</sub> kommen aus den Kräften, die die Luft an jeder Wandzelle auf das Modell überträgt, bezogen auf den Staudruck und die Stirnfläche (beim Tragflügel auf die Flügelfläche). Stromlinien zeigen, welchen Weg die Luft nimmt. Die Farbe gibt die Geschwindigkeit oder den Druck gegenüber der Umgebung an.</p>
+    <p>c<sub>W</sub> und c<sub>A</sub> kommen aus den Kräften, die die Luft an jeder Wandzelle auf das Modell überträgt, bezogen auf den Staudruck und die Stirnfläche (beim Tragflügel auf die Flügelfläche). Stromlinien zeigen, welchen Weg die Luft nimmt. Die Farbe gibt die Geschwindigkeit oder den Druck gegenüber der Umgebung an. Die Druckskala reicht vom Staudruck nach unten bis zum gleichen Betrag Unterdruck und ist in der Mitte gestreckt, damit auch der schwache Unterdruck hinter einem Fahrzeug (rund ein Zehntel des Staudrucks) und die Wirbel im Nachlauf zu sehen sind; der gezeigte Druck ist über einige Dutzend Rechenschritte geglättet.</p>
     <h3>Wie genau?</h3>
     <p>Geprüft an Körpern mit bekannten Messwerten (Stufe mit 8 Mio. Zellen; in Klammern die Messung): Kugel bei hoher Geschwindigkeit c<sub>W</sub> 0,21 (0,18 bis 0,20), bei 1 m/s 0,40 (0,47); Würfel 1,20 (1,05); vereinfachtes Auto (Ahmed-Körper) c<sub>W</sub> 0,48 (0,29 bis 0,30) und c<sub>A</sub> 0,36 (0,35); Tragflügel NACA 2412 bei 8° c<sub>A</sub> 0,49 (etwa 0,70).</p>
     <p>Wo die Strömung abreißt und wie die Wirbel dahinter ziehen, gibt die Rechnung gut wieder. Bei stumpfen Körpern wie Kugel und Würfel liegt c<sub>W</sub> innerhalb von etwa 20 % der Messung. Bei gerundeten Vorderkanten fällt c<sub>W</sub> zu hoch aus, weil die Rundung nur wenige Zellen umfasst. Dünne Flügelprofile sind die größte Schwäche: Ihre Vorderkante ist kleiner als eine Zelle, der Auftrieb fällt ein Drittel bis die Hälfte zu klein aus und der Widerstand deutlich zu groß; feinere Stufen helfen dabei nicht. Auch sonst ändern sich die Werte von Stufe zu Stufe um einige Prozent, der Auftrieb mitunter mehr. Der Kanal ist endlich groß, das Modell versperrt einige Prozent des Querschnitts. Für Vergleiche und Tendenzen taugen die Zahlen, für Nachkommastellen nicht.</p>
@@ -772,29 +772,60 @@ function makeExample(ex) {
 // Ergebnis: Float32Array mit 9 Werten je Dreieck (ohne Indizes)
 
 function parseSTL(buf) {
-  const dv = new DataView(buf);
-  if (buf.byteLength >= 84) {
-    const n = dv.getUint32(80, true);
-    if (84 + 50 * n === buf.byteLength && n > 0) {
-      const tri = new Float32Array(n * 9);
-      let o = 84;
-      for (let t = 0; t < n; t++) {
-        o += 12;
-        for (let k = 0; k < 9; k++) tri[t * 9 + k] = dv.getFloat32(o + 4 * k, true);
-        o += 38;
-      }
-      return tri;
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  parseSTL.note = '';
+  // Text oder binär? Eine Textdatei enthält in den ersten 1 kB keine Steuerzeichen außer Tab, CR, LF (Umlaute und eine
+  // Byte-Reihenfolge-Marke sind erlaubt); eine binäre Datei hat dort praktisch immer welche (Float-Bytes, Nullen im Kopf).
+  // Nur auf "solid" am Anfang zu schauen reicht nicht: viele binäre Dateien beginnen auch damit.
+  const probe = Math.min(u8.length, 1024);
+  let text = true;
+  for (let i = probe > 3 && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF ? 3 : 0; i < probe; i++) { const c = u8[i]; if (c < 32 && c !== 9 && c !== 10 && c !== 12 && c !== 13) { text = false; break; } }
+  if (utf16Kind(u8)) text = true;   // UTF-16-Text enthält Nullbytes, ist aber Text
+  if (buf.byteLength >= 84 && !text) {
+    const n = dv.getUint32(80, true), nFit = Math.floor((buf.byteLength - 84) / 50);
+    // Die Anzahl im Kopf gilt, wenn sie in die Datei passt (ein Anhang nach den Dreiecken wird übergangen); sonst so viele
+    // Dreiecke, wie die Dateigröße hergibt (abgeschnittene Datei oder falscher Kopf). Vorher wurde jede Abweichung um ein
+    // Byte als "keine STL-Datei" abgelehnt.
+    const m = n > 0 && n <= nFit ? n : nFit;
+    if (m <= 0) throw new Error('Die STL-Datei enthält keine Dreiecke.');
+    if (m !== n) parseSTL.note = `Die Anzahl im Dateikopf (${n}) passt nicht zur Dateigröße; es wurden ${m} Dreiecke gelesen.`;
+    else if (84 + 50 * n !== buf.byteLength) parseSTL.note = `${buf.byteLength - 84 - 50 * n} Byte am Dateiende übergangen.`;
+    const tri = new Float32Array(m * 9);
+    let o = 84;
+    for (let t = 0; t < m; t++) {
+      o += 12;
+      for (let k = 0; k < 9; k++) tri[t * 9 + k] = dv.getFloat32(o + 4 * k, true);
+      o += 38;
     }
+    return tri;
   }
-  const text = new TextDecoder().decode(buf);
-  if (!/facet/i.test(text)) throw new Error('Die Datei sieht nicht wie eine STL-Datei aus.');
-  const re = /vertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/g;
+  let s = decodeText(u8);
+  if (!/facet/i.test(s)) throw new Error('Die Datei sieht nicht wie eine STL-Datei aus (weder binär noch Text mit "facet").');
+  // je Eckpunkt drei Zahlen (auch mit Dezimalkomma); eine unlesbare Zahl macht nur ihr Dreieck ungültig
+  const re = /vertex\s+(\S+)\s+(\S+)\s+(\S+)/gi;   // auch VERTEX in Großbuchstaben
+  const num = (t) => +(t.includes(',') && !t.includes('.') ? t.replace(',', '.') : t);
   const v = [];
   let m;
-  while ((m = re.exec(text))) v.push(+m[1], +m[2], +m[3]);
+  while ((m = re.exec(s))) v.push(num(m[1]), num(m[2]), num(m[3]));
   const n = Math.floor(v.length / 9);
+  if (!n) throw new Error('In der STL-Datei wurden keine vollständigen Dreiecke (drei "vertex"-Zeilen) gefunden.');
   return new Float32Array(v.slice(0, n * 9));
 }
+
+// UTF-16-Text? Byte-Reihenfolge-Marke, oder in den ersten 1 kB fast nur Paare aus druckbarem Zeichen und Nullbyte
+function utf16Kind(u8) {
+  if (u8.length < 4) return '';
+  if (u8[0] === 0xFF && u8[1] === 0xFE) return 'utf-16le';
+  if (u8[0] === 0xFE && u8[1] === 0xFF) return 'utf-16be';
+  const pairs = Math.min(u8.length >> 1, 512);
+  let le = 0, be = 0;
+  const pr = (c) => (c >= 32 && c < 127) || c === 9 || c === 10 || c === 13;
+  for (let k = 0; k < pairs; k++) { const a = u8[2 * k], b = u8[2 * k + 1]; if (b === 0 && pr(a)) le++; if (a === 0 && pr(b)) be++; }
+  return le > 0.9 * pairs ? 'utf-16le' : be > 0.9 * pairs ? 'utf-16be' : '';
+}
+
+// Text aus einer Datei: UTF-8 oder UTF-16
+function decodeText(u8) { return new TextDecoder(utf16Kind(u8) || 'utf-8').decode(u8); }
 
 function parseOBJ(text) {
   const verts = [], tri = [];
@@ -817,7 +848,7 @@ function parseOBJ(text) {
   return new Float32Array(tri);
 }
 
-// fehlerhafte Dreiecke entfernen (NaN, Fläche null)
+// fehlerhafte Dreiecke entfernen (NaN, Fläche null); cleanTriangles.dropped = Zahl der verworfenen Dreiecke
 function cleanTriangles(tri) {
   const out = new Float32Array(tri.length);
   let n = 0;
@@ -831,6 +862,7 @@ function cleanTriangles(tri) {
     if (!(a > 0)) continue;
     out.set(tri.subarray(t, t + 9), n); n += 9;
   }
+  cleanTriangles.dropped = Math.floor(tri.length / 9) - n / 9;
   return out.slice(0, n);
 }
 
@@ -870,7 +902,7 @@ function meshFromTriangles(tri, color) {
     const l = Math.hypot(nx, ny, nz) || 1; fn[t * 3] = nx / l; fn[t * 3 + 1] = ny / l; fn[t * 3 + 2] = nz / l;
   }
   const nrm = new Float32Array(tri.length);
-  if (nt > 600000) {
+  if (nt > 200000) {   // ab hier nur Flächennormalen (das Zusammenfassen gleicher Ecken dauerte bei 600 000 Dreiecken 4 s)
     for (let i = 0; i < nt * 3; i++) { const t = Math.floor(i / 3); nrm.set(fn.subarray(t * 3, t * 3 + 3), i * 3); }
     return { pos, col, idx, nrm };
   }
@@ -914,17 +946,18 @@ function meshToSTL(mesh) {
 // ---------- 4. Zerlegung in Würfelzellen (Voxelisierung) ----------
 // Eingabe: Dreiecke in Gitterkoordinaten (Zellmitte i liegt bei Koordinate i).
 // Je Achse werden Strahlen durch die Zellmitten geschickt und Ein-/Austritte gezählt
-// (Umlaufzahl). Eine Zelle ist fest, wenn die Mehrheit der gültigen Richtungen "innen" sagt.
-// Offene Netze (z. B. einzelne Flächen) werden zusätzlich als dünne Wand eingetragen.
+// (Umlaufzahl; sich überlappende Teile zählen damit als ein Körper). Passen Ein- und Austritte auf einem Strahl
+// nicht zusammen (uneinheitlich orientierte Dreiecke), gilt die Abfolge innen/außen; doppelte Dreiecke zählen einmal.
+// Eine Zelle ist fest, wenn die Mehrheit der gültigen Richtungen "innen" sagt.
+// Offene Netze (z. B. einzelne Flächen) werden erkannt (openMesh); ihre Flächen wirken über die dünnen Wandverbindungen.
 
 function voxelize(tri, nx, ny, nz) {
   const N = nx * ny * nz, dims = [nx, ny, nz];
-  const votes = new Uint8Array(N), surf = new Uint8Array(N);
+  const votes = new Uint8Array(N);
   const valid = [];
   let hitCols = 0, badCols = 0;
   const AX = [{ a: 2, u: 0, v: 1 }, { a: 0, u: 1, v: 2 }, { a: 1, u: 2, v: 0 }];
   const EPS_U = 1.234567e-4, EPS_V = 2.345678e-4;
-  let surfCap = 1 << 16, surfList = new Int32Array(surfCap), nSurf = 0;
   for (const ax of AX) {
     const nu = dims[ax.u], nv = dims[ax.v], na = dims[ax.a], ncol = nu * nv;
     let cap = 1 << 16, col = new Int32Array(cap), dep = new Float32Array(cap), sg = new Int8Array(cap), nh = 0;
@@ -978,29 +1011,38 @@ function voxelize(tri, nx, ny, nz) {
         while (j >= 0 && tmpD[j] > dv) { tmpD[j + 1] = tmpD[j]; tmpS[j + 1] = tmpS[j]; j--; }
         tmpD[j + 1] = dv; tmpS[j + 1] = sv2;
       }
-      const iu = c % nu, iv = (c - iu) / nu, base = iu * su + iv * sv;
-      for (const dd of tmpD) {
-        const k = Math.round(dd);
-        if (k < 0 || k >= na) continue;
-        if (nSurf === surfCap) { surfCap *= 2; const t2 = new Int32Array(surfCap); t2.set(surfList); surfList = t2; }
-        surfList[nSurf++] = base + k * sa;
+      // doppelte Dreiecke (gleiche Tiefe, gleiche Richtung) nur einmal zählen
+      let m = 0;
+      for (let i = 0; i < tmpD.length; i++) {
+        if (m > 0 && tmpS[i] === tmpS[m - 1] && Math.abs(tmpD[i] - tmpD[m - 1]) < 1e-5) continue;
+        tmpD[m] = tmpD[i]; tmpS[m] = tmpS[i]; m++;
       }
+      tmpD.length = m; tmpS.length = m;
+      const iu = c % nu, iv = (c - iu) / nu, base = iu * su + iv * sv;
       let w = 0;
       for (const s of tmpS) w += s;
-      if (w !== 0) { colValid[c] = 0; badCols++; continue; }
+      const fill = (k0, k1) => { for (let k = Math.max(0, k0); k <= Math.min(na - 1, k1); k++) votes[base + k * sa]++; };
+      if (w !== 0) {
+        // Ein- und Austritte gehen nicht auf: Dreiecke uneinheitlich orientiert (häufig bei STL-Dateien) oder Loch.
+        // Bei gerader Trefferzahl hilft die Abfolge innen/außen (wie bei einem Strahl durch eine geschlossene Fläche),
+        // bei ungerader Zahl ist die Spalte unbrauchbar.
+        if (tmpD.length % 2) { colValid[c] = 0; badCols++; continue; }
+        for (let j = 0; j + 1 < tmpD.length; j += 2) fill(Math.floor(tmpD[j]) + 1, Math.ceil(tmpD[j + 1]) - 1);
+        continue;
+      }
       w = 0;
       for (let j = 0; j + 1 < tmpD.length; j++) {
         w += tmpS[j];
         if (w === 0) continue;
-        const k0 = Math.max(0, Math.floor(tmpD[j]) + 1), k1 = Math.min(na - 1, Math.ceil(tmpD[j + 1]) - 1);
-        for (let k = k0; k <= k1; k++) votes[base + k * sa]++;
+        fill(Math.floor(tmpD[j]) + 1, Math.ceil(tmpD[j + 1]) - 1);
       }
     }
     valid.push(colValid);
   }
-  // Offenes Netz? Dann Trefferzellen als Wand eintragen
+  // Offenes Netz (viele Strahlen ohne passende Ein-/Austritte)? Dann bleibt nur der Mehrheitsentscheid der übrigen
+  // Richtungen; die Fläche selbst wird im Wandaufbau über die dünnen Wandverbindungen dicht (Schritt 1b dort), ohne
+  // das Modell um eine halbe Zelle zu verdicken.
   const openMesh = hitCols > 0 && badCols / hitCols > 0.02;
-  if (openMesh) for (let i = 0; i < nSurf; i++) surf[surfList[i]] = 1;
   const [vz, vx, vy] = valid;
   const solid = new Uint8Array(N);
   let count = 0;
@@ -1009,7 +1051,7 @@ function voxelize(tri, nx, ny, nz) {
     for (let x = 0; x < nx; x++) {
       const i = row + x;
       const known = vz[x + nx * y] + vx[y + ny * z] + vy[z + nz * x];
-      if ((known > 0 && votes[i] * 2 > known) || surf[i]) { solid[i] = 1; count++; }
+      if (known > 0 && votes[i] * 2 > known) { solid[i] = 1; count++; }
     }
   }
   return { solid, count, openMesh };
@@ -1108,19 +1150,27 @@ function rayHits(tri, fam, nx, ny, nz) {
 
 // q entlang einer Verbindung: Fluidpunkt (x,y,z), feste Zelle bei (x,y,z) + s·e.
 // Gesucht ist der Schnittpunkt, der dem Fluidpunkt am nächsten liegt; -1, wenn keiner gefunden wird.
+// Die Strahlen sind gegen die Zellmitten leicht versetzt (EPS_U, EPS_V in rayHits); die Toleranz hier ist größer als
+// dieser Versatz, sonst gingen Flächen genau auf einer Zellmitte verloren. Liegt die Fläche knapp hinter dem Fluidpunkt
+// (q < 0) oder knapp hinter der festen Zellmitte (q > 1), geht sie durch die jeweilige Zellmitte: q = 0 bzw. 1.
 // Das getroffene Dreieck steht danach in hitQ.tri.
 function hitQ(H, x, y, z, s) {
   const f = H.fam;
   const u = f.u[0] * x + f.u[1] * y + f.u[2] * z - H.umin, v = f.v[0] * x + f.v[1] * y + f.v[2] * z - H.vmin;
   if (u < 0 || v < 0 || u >= H.nu || v >= H.nv) return -1;
   const r = u + H.nu * v, t0 = f.t[0] * x + f.t[1] * y + f.t[2] * z;
-  let best = -1;
+  let best = Infinity, fb = -Infinity, fbTri = -1, ff = Infinity, ffTri = -1;
   hitQ.tri = -1;
   for (let h = H.start[r], e = H.start[r + 1]; h < e; h++) {
     const q = (H.depth[h] - t0) * s;
-    if (q >= -1e-4 && q <= 1 + 1e-4 && (best < 0 || q < best)) { best = q; hitQ.tri = H.tri[h]; }
+    if (q >= -1e-2 && q <= 1 + 1e-2) { if (q < best) { best = q; hitQ.tri = H.tri[h]; } }
+    else if (q < 0 && q > -1 && q > fb) { fb = q; fbTri = H.tri[h]; }
+    else if (q > 1 && q < 2 && q < ff) { ff = q; ffTri = H.tri[h]; }
   }
-  return best < 0 ? -1 : Math.min(1, Math.max(0, best));
+  if (hitQ.tri >= 0) return Math.min(1, Math.max(0, best));
+  if (fbTri >= 0 && (ffTri < 0 || -fb <= ff - 1)) { hitQ.tri = fbTri; return 0; }
+  if (ffTri >= 0) { hitQ.tri = ffTri; return 1; }
+  return -1;
 }
 
 // Randzellen, q je Verbindung, Wandnormale und -abstand.
@@ -1128,46 +1178,92 @@ function hitQ(H, x, y, z, s) {
 function buildWalls(tri, solid, nx, ny, nz, opt = {}) {
   const N = nx * ny * nz, NXY = nx * ny, { C, W } = D3Q19;
   const info = new Uint32Array(N);
-  // 1. feste Zellen markieren, angrenzende Fluidzellen bekommen je Richtung ein Bit
-  //    (Bit i: zwischen x und x - c_i liegt die Wand, die einlaufende Verteilung i kommt von ihr zurück; x - c_i ist
-  //    fest oder, bei dünnen Teilen (Schritt 1b), selbst eine Fluidzelle auf der anderen Seite)
-  let nSolid = 0;
-  for (let i = 0; i < N; i++) if (solid[i]) { info[i] = INFO_SOLID; nSolid++; }
-  if (nSolid) {
-    for (let d = 1; d < 19; d++) {
-      const cx = C[d][0], cy = C[d][1], cz = C[d][2], bit = 1 << d, off = cx + cy * nx + cz * NXY;
-      const x0 = Math.max(0, cx), x1 = Math.min(nx, nx + cx), y0 = Math.max(0, cy), y1 = Math.min(ny, ny + cy), z0 = Math.max(0, cz), z1 = Math.min(nz, nz + cz);
-      for (let z = z0; z < z1; z++) for (let y = y0; y < y1; y++) {
-        const row = nx * y + NXY * z;
-        for (let j = row + x0, e = row + x1; j < e; j++) if (solid[j - off] && !solid[j]) info[j] |= bit;
-      }
-    }
-  }
-  // 1b. Dünne Teile: Verbindungen zwischen zwei Fluidzellen, die die Oberfläche kreuzen (Teile dünner als eine Zelle,
-  //     etwa die Hinterkante eines Flügels, oder eine Kante, die eine schräge Verbindung abschneidet), werden ebenfalls
-  //     Wandverbindungen. Sonst strömte die Luft durch solche Stellen hindurch, als wären sie nicht da.
   const H = RAY_FAMS.map(f => rayHits(tri, f, nx, ny, nz));
-  let thin = 0;
-  for (let f = 0; f < RAY_FAMS.length && opt.thin !== false; f++) {
-    const Hf = H[f], fam = RAY_FAMS[f], e = fam.e;
-    const dPos = C.findIndex(c => c[0] === e[0] && c[1] === e[1] && c[2] === e[2]), dNeg = C.findIndex(c => c[0] === -e[0] && c[1] === -e[1] && c[2] === -e[2]);
-    const Mi = inv3([fam.u, fam.v, fam.t]);
-    for (let r = 0, nr = Hf.nu * Hf.nv; r < nr; r++) {
-      const h0 = Hf.start[r], h1 = Hf.start[r + 1];
-      if (h0 === h1) continue;
-      const u = (r % Hf.nu) + Hf.umin, v = Math.floor(r / Hf.nu) + Hf.vmin;
-      for (let h = h0; h < h1; h++) {
-        const t = Hf.depth[h], ta = Math.floor(t);
-        if (t - ta < 1e-6) continue;
-        const ax = Math.round(Mi[0] * u + Mi[1] * v + Mi[2] * ta), ay = Math.round(Mi[3] * u + Mi[4] * v + Mi[5] * ta), az = Math.round(Mi[6] * u + Mi[7] * v + Mi[8] * ta);
-        const bx = ax + e[0], by = ay + e[1], bz = az + e[2];
-        if (ax < 0 || ay < 0 || az < 0 || ax >= nx || ay >= ny || az >= nz || bx < 0 || by < 0 || bz < 0 || bx >= nx || by >= ny || bz >= nz) continue;
-        const ia = ax + nx * ay + NXY * az, ib = bx + nx * by + NXY * bz;
-        if (solid[ia] || solid[ib]) continue;
-        if (!(info[ia] & (1 << dNeg))) thin++;
-        info[ia] |= 1 << dNeg; info[ib] |= 1 << dPos;
+  let nSolid = 0, thin = 0;
+  const mark = () => {
+    info.fill(0); nSolid = 0; thin = 0;
+    // 1. feste Zellen markieren, angrenzende Fluidzellen bekommen je Richtung ein Bit
+    //    (Bit i: zwischen x und x - c_i liegt die Wand, die einlaufende Verteilung i kommt von ihr zurück; x - c_i ist
+    //    fest oder, bei dünnen Teilen (Schritt 1b), selbst eine Fluidzelle auf der anderen Seite)
+    for (let i = 0; i < N; i++) if (solid[i]) { info[i] = INFO_SOLID; nSolid++; }
+    if (nSolid) {
+      for (let d = 1; d < 19; d++) {
+        const cx = C[d][0], cy = C[d][1], cz = C[d][2], bit = 1 << d, off = cx + cy * nx + cz * NXY;
+        const x0 = Math.max(0, cx), x1 = Math.min(nx, nx + cx), y0 = Math.max(0, cy), y1 = Math.min(ny, ny + cy), z0 = Math.max(0, cz), z1 = Math.min(nz, nz + cz);
+        for (let z = z0; z < z1; z++) for (let y = y0; y < y1; y++) {
+          const row = nx * y + NXY * z;
+          for (let j = row + x0, e = row + x1; j < e; j++) if (solid[j - off] && !solid[j]) info[j] |= bit;
+        }
       }
     }
+    // 1b. Dünne Teile: Verbindungen zwischen zwei Fluidzellen, die die Oberfläche kreuzen (Teile dünner als eine Zelle,
+    //     etwa die Hinterkante eines Flügels, oder eine Kante, die eine schräge Verbindung abschneidet), werden ebenfalls
+    //     Wandverbindungen. Sonst strömte die Luft durch solche Stellen hindurch, als wären sie nicht da.
+    for (let f = 0; f < RAY_FAMS.length && opt.thin !== false; f++) {
+      const Hf = H[f], fam = RAY_FAMS[f], e = fam.e;
+      const dPos = C.findIndex(c => c[0] === e[0] && c[1] === e[1] && c[2] === e[2]), dNeg = C.findIndex(c => c[0] === -e[0] && c[1] === -e[1] && c[2] === -e[2]);
+      const Mi = inv3([fam.u, fam.v, fam.t]);
+      for (let r = 0, nr = Hf.nu * Hf.nv; r < nr; r++) {
+        const h0 = Hf.start[r], h1 = Hf.start[r + 1];
+        if (h0 === h1) continue;
+        const u = (r % Hf.nu) + Hf.umin, v = Math.floor(r / Hf.nu) + Hf.vmin;
+        for (let h = h0; h < h1; h++) {
+          const t = Hf.depth[h], tr = Math.round(t);
+          let onCentre = Math.abs(t - tr) < 1e-3;
+          const ta = onCentre ? tr : Math.floor(t);
+          if (onCentre) {
+            // Treffer (fast) genau auf einer Zellmitte: Gehört eine der drei Zellen auf der Linie zum Modell, erledigt das
+            // Schritt 1; sonst (Fläche ohne Dicke genau auf einer Zellmittenebene) die Zelle nach beiden Seiten absperren,
+            // sonst bliebe dort ein Loch und die Fläche wäre in Achsrichtung durchlässig
+            const cx0 = Math.round(Mi[0] * u + Mi[1] * v + Mi[2] * ta), cy0 = Math.round(Mi[3] * u + Mi[4] * v + Mi[5] * ta), cz0 = Math.round(Mi[6] * u + Mi[7] * v + Mi[8] * ta);
+            let near = false;
+            for (let k = -1; k <= 1 && !near; k++) { const X = cx0 + k * e[0], Y = cy0 + k * e[1], Z = cz0 + k * e[2]; if (X >= 0 && Y >= 0 && Z >= 0 && X < nx && Y < ny && Z < nz && solid[X + nx * Y + NXY * Z]) near = true; }
+            if (near) continue;
+          }
+          for (let k = onCentre ? -1 : 0; k <= 0; k++) {
+            const ax = Math.round(Mi[0] * u + Mi[1] * v + Mi[2] * ta) + k * e[0], ay = Math.round(Mi[3] * u + Mi[4] * v + Mi[5] * ta) + k * e[1], az = Math.round(Mi[6] * u + Mi[7] * v + Mi[8] * ta) + k * e[2];
+            const bx = ax + e[0], by = ay + e[1], bz = az + e[2];
+            // liegt eine der beiden Zellen außerhalb des Gitters (dünnes Teil reicht bis an den Rand), bekommt die andere
+            // trotzdem ihre Wandverbindung (sonst wäre die Wand dort undicht)
+            const aIn = ax >= 0 && ay >= 0 && az >= 0 && ax < nx && ay < ny && az < nz, bIn = bx >= 0 && by >= 0 && bz >= 0 && bx < nx && by < ny && bz < nz;
+            if (!aIn && !bIn) continue;
+            const ia = aIn ? ax + nx * ay + NXY * az : -1, ib = bIn ? bx + nx * by + NXY * bz : -1;
+            if ((aIn && solid[ia]) || (bIn && solid[ib])) continue;
+            if (aIn) { if (!(info[ia] & (1 << dNeg))) thin++; info[ia] |= 1 << dNeg; }
+            if (bIn) info[ib] |= 1 << dPos;
+          }
+        }
+      }
+    }
+  };
+  mark();
+  // 1c. Eingeschlossene Luft (Hohlräume im Modell, einzelne Zellen zwischen Wänden): von den Gitterrändern aus über die
+  //     sechs Achsrichtungen fluten; was nicht erreicht wird, gehört zum Modell. Sonst rechneten dort Randzellen mit Kräften
+  //     und Wandmodell an ruhender Luft. Danach die Wandverbindungen neu bestimmen.
+  let sealed = 0;
+  if (nSolid || thin) {
+    const seen = new Uint8Array(N);
+    let q = new Int32Array(1 << 16), qn = 0;
+    const push = (i) => { if (qn === q.length) { const t = new Int32Array(q.length * 2); t.set(q); q = t; } q[qn++] = i; };
+    const dirBit = [1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6];   // Verteilung aus -x, +x, -y, +y, -z, +z (C[1..6])
+    // Start auf allen sechs Gitterrändern (nicht nur am Einlass): Luft, die nur vom Auslass oder von der Seite her
+    // erreichbar wäre, ist trotzdem Luft
+    for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+      if (x > 0 && x < nx - 1 && y > 0 && y < ny - 1 && z > 0 && z < nz - 1) { x = nx - 2; continue; }
+      const i = x + nx * (y + ny * z); if (!solid[i]) { seen[i] = 1; push(i); }
+    }
+    for (let head = 0; head < qn; head++) {
+      const i = q[head], x = i % nx, y = ((i - x) / nx) % ny, z = (i - x - nx * y) / NXY;
+      // Nachbar j = i + e; gesperrt, wenn j fest ist oder info[j] das Bit der Richtung e trägt (Wand zwischen i und j)
+      let j = i + 1; if (x + 1 < nx && !seen[j] && !solid[j] && !(info[j] & dirBit[0])) { seen[j] = 1; push(j); }
+      j = i - 1; if (x > 0 && !seen[j] && !solid[j] && !(info[j] & dirBit[1])) { seen[j] = 1; push(j); }
+      j = i + nx; if (y + 1 < ny && !seen[j] && !solid[j] && !(info[j] & dirBit[2])) { seen[j] = 1; push(j); }
+      j = i - nx; if (y > 0 && !seen[j] && !solid[j] && !(info[j] & dirBit[3])) { seen[j] = 1; push(j); }
+      j = i + NXY; if (z + 1 < nz && !seen[j] && !solid[j] && !(info[j] & dirBit[4])) { seen[j] = 1; push(j); }
+      j = i - NXY; if (z > 0 && !seen[j] && !solid[j] && !(info[j] & dirBit[5])) { seen[j] = 1; push(j); }
+    }
+    for (let i = 0; i < N; i++) if (!solid[i] && !seen[i]) { solid[i] = 1; sealed++; }
+    if (sealed) mark();
   }
   // 2. Randzellen durchnummerieren
   let nb = 0;
@@ -1205,6 +1301,7 @@ function buildWalls(tri, solid, nx, ny, nz, opt = {}) {
   let links = 0, misses = 0;
   const V = [0, 0, 0];   // Summe 2·w·c über alle Wandverbindungen (für den Druckbezug der Kräfte)
   const px = new Float64Array(19), py = new Float64Array(19), pz = new Float64Array(19), qb = new Uint8Array(20);
+  const axTri = new Int32Array(nb * 7).fill(-1);   // getroffenes Dreieck je Achsverbindung (für die Kantenregel in Schritt 5)
   for (let b = 0; b < nb; b++) {
     const i = bcell[b], x = i % nx, y = ((i - x) / nx) % ny, z = (i - x - nx * y) / NXY;
     const m = blist[b * B_STRIDE];
@@ -1215,7 +1312,13 @@ function buildWalls(tri, solid, nx, ny, nz, opt = {}) {
       links++;
       let q = hitQ(H[famOf[d]], x, y, z, sgnOf[d]);
       const t = hitQ.tri;
-      if (q < 0) { q = 0.5; misses++; }
+      if (d <= 6) axTri[b * 7 + d] = t;
+      if (q < 0) { q = 0.45; misses++; }   // kein Dreieck gefunden: Wand etwa in der Mitte (0,45 statt 0,5, damit die Interpolation mit dem Nachbarn greift und der Anfangsstoß abklingt)
+      // Nahe q = 0,5 wird die Wandregel zum reinen Rückprall: der Anteil der Nachbarzelle in der Interpolation geht gegen
+      // null, und das Zweischritt-Schwingen des Anfangsstoßes (bei kleiner Zähigkeit) klingt dann erst nach Hunderten von
+      // Schritten ab (bei q = 0,5 etwa 300 Schritte lang „negativer Widerstand“, bei 0,46 nach rund 40 Schritten vorbei).
+      // Darum liegt q höchstens 0,04 Zellen von der echten Wand entfernt, aber nie im Band 0,46–0,54.
+      if (q > 0.46 && q < 0.54) q = q < 0.5 ? 0.46 : 0.54;
       qb[d - 1] = Math.max(0, Math.min(255, Math.round(q * 255)));
       q = qb[d - 1] / 255;   // mit dem gespeicherten Wert weiterrechnen
       // Wandpunkt: x - q·c_d
@@ -1244,7 +1347,57 @@ function buildWalls(tri, solid, nx, ny, nz, opt = {}) {
     if (!Number.isFinite(dist)) dist = 0.5;
     bwall[b * 4] = nxw; bwall[b * 4 + 1] = nyw; bwall[b * 4 + 2] = nzw; bwall[b * 4 + 3] = Math.max(0.02, Math.min(1.5, dist));
   }
-  return { info, blist, bwall, bcell, nb, links, misses, V, nSolid, thin };
+  // 5. Konvexe Kanten: Liegt eine Kante des Modells knapp außerhalb einer Diagonalverbindung zweier Fluidzellen (A und B
+  //    liegen beide an der festen Eckzelle C, A–B läuft an der Kante vorbei), bleibt die Diagonale sonst offen: Die Luft
+  //    strömt dann schräg durch die Ecke, als wäre die Kante um eine halbe Zelle gebrochen. Ob das passiert, hing bisher
+  //    davon ab, ob die Flächen vor oder hinter der Zellmitte liegen (q über oder unter 0,5): Beim Quader sprang cW
+  //    dadurch um fast die Hälfte. Jetzt gilt die Diagonale als Wand, solange die Kante näher an ihr liegt als an der
+  //    Mitte der Eckzelle (q_A + q_B < 1,5 mit den Abständen der beiden Achsverbindungen zur Wand); q = 0,54, damit nur
+  //    die Zelle selbst in die Wandregel eingeht. (Ein anteiliger Rückprall, der die Verbindung stetig öffnet, wurde
+  //    geprüft und verworfen: Die halb offene Diagonale wirkt wie eine poröse Finne und bremst mehr als die Wand.)
+  //    Nur echte Kanten:
+  //    Die beiden Achsverbindungen müssen Dreiecke treffen, deren Normalen um mehr als 30° auseinanderliegen. An den
+  //    Treppenstufen gewölbter Flächen (Kugel, Rundungen) bleibt die Diagonale offen, sonst würde die Fläche rauer.
+  const dirOf = (vx, vy, vz) => C.findIndex(c => c[0] === vx && c[1] === vy && c[2] === vz);
+  const getQ = (bb, d) => (blist[bb * B_STRIDE + 1 + ((d - 1) >> 2)] >>> (8 * ((d - 1) & 3))) & 255;
+  const setQ = (bb, d, v) => { const w = bb * B_STRIDE + 1 + ((d - 1) >> 2), sh = 8 * ((d - 1) & 3); blist[w] = ((blist[w] & ~(255 << sh)) | (v << sh)) >>> 0; };
+  const EDGE_COS = Math.cos(30 * DEG), EDGE_SUM = 1.5, qEdge = Math.round(0.54 * 255);
+  let edges = 0;
+  const addLink = (bb, d) => {
+    if (blist[bb * B_STRIDE] & (1 << d)) return;
+    blist[bb * B_STRIDE] |= 1 << d; setQ(bb, d, qEdge); links++; edges++;
+    V[0] -= 2 * W[d] * C[d][0]; V[1] -= 2 * W[d] * C[d][1]; V[2] -= 2 * W[d] * C[d][2];
+  };
+  const inGrid = (X, Y, Z) => X >= 0 && Y >= 0 && Z >= 0 && X < nx && Y < ny && Z < nz;
+  for (let b = 0; b < nb; b++) {
+    const i = bcell[b], x = i % nx, y = ((i - x) / nx) % ny, z = (i - x - nx * y) / NXY, m = blist[b * B_STRIDE];
+    for (let d = 1; d <= 6; d++) {
+      if (!(m & (1 << d))) continue;
+      const ex = C[d][0], ey = C[d][1], ez = C[d][2];   // Zelle C = A - c_d liegt hinter der Verbindung
+      const cx = x - ex, cy = y - ey, cz = z - ez;
+      if (!inGrid(cx, cy, cz) || !solid[cx + nx * cy + NXY * cz]) continue;
+      const qA = getQ(b, d) / 255;
+      for (let p = 0; p < 3; p++) {
+        if ((p === 0 && ex) || (p === 1 && ey) || (p === 2 && ez)) continue;   // nur die beiden Querachsen
+        for (const t of [-1, 1]) {
+          const px = p === 0 ? t : 0, py = p === 1 ? t : 0, pz = p === 2 ? t : 0;
+          const dxD = x + px, dyD = y + py, dzD = z + pz, bx = cx + px, by = cy + py, bz = cz + pz;
+          if (!inGrid(dxD, dyD, dzD) || !inGrid(bx, by, bz)) continue;
+          if (solid[dxD + nx * dyD + NXY * dzD] || solid[bx + nx * by + NXY * bz]) continue;
+          const infoB = info[bx + nx * by + NXY * bz];
+          if (infoB === 0 || infoB === INFO_SOLID) continue;
+          const bB = infoB - 1, dB = dirOf(px, py, pz);   // Verbindung von B zur Eckzelle C: B - c = C, c = t·e_p
+          if (!(blist[bB * B_STRIDE] & (1 << dB))) continue;
+          if (qA + getQ(bB, dB) / 255 >= EDGE_SUM) continue;
+          const tA = axTri[b * 7 + d], tB = axTri[bB * 7 + dB];
+          if (tA >= 0 && tB >= 0 && Math.abs(tn[tA * 3] * tn[tB * 3] + tn[tA * 3 + 1] * tn[tB * 3 + 1] + tn[tA * 3 + 2] * tn[tB * 3 + 2]) > EDGE_COS) continue;
+          addLink(b, dirOf(ex - px, ey - py, ez - pz));    // A - c = B
+          addLink(bB, dirOf(px - ex, py - ey, pz - ez));   // B - c = A
+        }
+      }
+    }
+  }
+  return { info, blist, bwall, bcell, nb, links, misses, V, nSolid, thin, sealed, edges };
 }
 
 // Inverse einer 3×3-Matrix (Zeilen a, b, c), als flaches Feld
@@ -1258,14 +1411,15 @@ function inv3([a, b, c]) {
 }
 
 // Abstandsfeld: Abstand jeder Zellmitte zur nächsten Wand (in Zellen).
-// Genaue euklidische Abstandstransformation zu den festen Zellen (Felzenszwalb), an den Randzellen
-// der Wandabstand aus buildWalls; fester Boden zählt als Wand.
+// Genaue euklidische Abstandstransformation zu den festen Zellen (Felzenszwalb). Dünne Wände (Randzellen ohne
+// feste Zelle dahinter, etwa Hinterkanten oder offene Netze) bekommen eine zweite Transformation, damit auch dort
+// die wandnahe Zähigkeit greift. An den Randzellen selbst gilt der Wandabstand aus buildWalls; fester Boden zählt als Wand.
 function wallDistance(solid, walls, nx, ny, nz, floorFixed) {
   const N = nx * ny * nz, INF = 1e20, n = Math.max(nx, ny, nz);
   const D = new Float32Array(N);
   let any = false;
   for (let i = 0; i < N; i++) { D[i] = solid[i] ? 0 : INF; if (solid[i]) any = true; }
-  if (any) {
+  const edt = (D) => {
     const f = new Float64Array(n), out = new Float64Array(n), v = new Int32Array(n), zb = new Float64Array(n + 1);
     const line = (base, stride, len) => {
       for (let q = 0, i = base; q < len; q++, i += stride) f[q] = D[i];
@@ -1291,9 +1445,30 @@ function wallDistance(solid, walls, nx, ny, nz, floorFixed) {
     for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) line(nx * y + NXY * z, 1, nx);
     for (let z = 0; z < nz; z++) for (let x = 0; x < nx; x++) line(x + NXY * z, nx, ny);
     for (let j = 0; j < NXY; j++) line(j, NXY, nz);
-  }
+  };
+  if (any) edt(D);
   // Abstand der Mitte zur Wand: Abstand zur nächsten festen Zellmitte minus eine halbe Zelle
   for (let i = 0; i < N; i++) D[i] = D[i] >= INF ? 1e6 : (solid[i] ? 0 : Math.max(0.5, Math.sqrt(D[i]) - 0.5));
+  // dünne Wände (Randzellen ohne feste Zelle hinter irgendeiner Wandverbindung): Abstand zur nächsten solchen Zelle
+  // plus eine halbe Zelle (die Wand liegt etwa dort)
+  if (walls && walls.nb) {
+    const { C } = D3Q19, T = new Float32Array(N).fill(INF), NXY = nx * ny;
+    let nThin = 0;
+    for (let b = 0; b < walls.nb; b++) {
+      const i = walls.bcell[b], m = walls.blist[b * B_STRIDE], x = i % nx, y = ((i - x) / nx) % ny, z = (i - x - nx * y) / NXY;
+      let solidNb = false;
+      for (let d = 1; d < 19 && !solidNb; d++) {
+        if (!(m & (1 << d))) continue;
+        const X = x - C[d][0], Y = y - C[d][1], Z = z - C[d][2];
+        if (X >= 0 && Y >= 0 && Z >= 0 && X < nx && Y < ny && Z < nz && solid[X + nx * Y + NXY * Z]) solidNb = true;
+      }
+      if (!solidNb) { T[i] = 0; nThin++; }
+    }
+    if (nThin) {
+      edt(T);
+      for (let i = 0; i < N; i++) if (!solid[i] && T[i] < INF) D[i] = Math.min(D[i], Math.sqrt(T[i]) + 0.5);
+    }
+  }
   if (walls) for (let b = 0; b < walls.nb; b++) D[walls.bcell[b]] = walls.bwall[b * 4 + 3];
   if (floorFixed) {
     const NXY = nx * ny;
@@ -1391,7 +1566,7 @@ SST.g2 = SST.b2 / SST.bs - SST.sw2 * SST.kap * SST.kap / Math.sqrt(SST.bs);
 const WM_B = 5.2;                        // Wandgesetz: u+ = ln(y+)/κ + B
 const WM_PROBE = 1.0;                    // Abstand der Sonde von der wandnächsten Zelle (Zellen, entlang der Normalen)
 const WM_YP = [10, 30];                  // Übergang aufgelöste Wand -> Wandgesetz (y+ an der Sonde)
-const SST_DMAX = 0.08;                   // größte Diffusionszahl je Seite (k und ω)
+const SST_DMAX = 1 / 6;                  // größte Diffusionszahl je Seite (k und ω; mit impliziter Mitte bis hier monoton)
 const ML_D = [2, 4];                     // wandnahe Mischungsweg-Viskosität: voll bis 2 Zellen Wandabstand, bei 4 Zellen null
 const ML_AP = 26;                        // Dämpfung nach van Driest (A+)
 const KW_MIN = [1e-14, 1e-8];            // Untergrenzen für k und ω (Gittereinheiten)
@@ -1405,6 +1580,7 @@ struct Prm {
   spg: vec4<f32>,    // x: Schwammbreite Auslass, y: Schwammbreite Seiten, z: größte Wirbelviskosität, w: Cw (WALE)
   kin: vec4<f32>,    // x: k am Einlass, y: omega am Einlass (gleichförmiger Wind), z: u* (Wind mit Bodenprofil), w: Faktor der wandnahen Mischungsweg-Viskosität (Prüfschalter, sonst 1)
   ext: vec4<f32>,    // x, y: wandnahe Mischungsweg-Viskosität voll bis x Zellen Wandabstand, ab y Zellen null; z: Anteil turbulente Grenzschicht am Modell (0 laminar ... 1)
+  aux: vec4<f32>,    // x: Zuschlag zur Einlassgeschwindigkeit (Prüfschalter, sonst 0), y: 1 = Schubspannung von oben über rauem Boden (stationär)
 };
 const SOLIDV: u32 = 0xffffffffu;
 fn geq(w: f32, dr: f32, cu: f32, uu: f32) -> f32 { return w * (dr + (1.0 + dr) * (3.0 * cu + 4.5 * cu * cu - 1.5 * uu)); }
@@ -1438,7 +1614,6 @@ function wgslStep() {
 @group(0) @binding(5) var<storage, read> turb: array<vec4<u32>>;
 @group(0) @binding(6) var<storage, read_write> mac: array<vec4<f32>>;
 @group(0) @binding(7) var<storage, read_write> bforce: array<vec4<f32>>;
-@group(0) @binding(8) var<storage, read> bw: array<vec4<f32>>;
 // Richtungen als Tabellen (für die Schleife beim Ausgleich der u²-Anteile)
 var<private> DCX: array<i32, 19> = array<i32, 19>(${C.map(c => c[0]).join(', ')});
 var<private> DCY: array<i32, 19> = array<i32, 19>(${C.map(c => c[1]).join(', ')});
@@ -1450,40 +1625,32 @@ fn macOf(c: u32) -> vec4<f32> {
   let N = prm.dims.w;
 ${momF('c')}  return vec4<f32>(j / (1.0 + d), d);
 }
+// Ein Thread je Zelle, flach über alle Zellen (so bleibt keine Lane leer, wenn nx kein Vielfaches von 64 ist)
 @compute @workgroup_size(64, 1, 1)
-fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+fn main(@builtin(global_invocation_id) g: vec3<u32>, @builtin(num_workgroups) ngr: vec3<u32>) {
   let NX = i32(prm.dims.x);
   let NY = i32(prm.dims.y);
   let NZ = i32(prm.dims.z);
   let NXY = NX * NY;
   let N = prm.dims.w;
-  let x = i32(g.x);
-  if (x >= NX) { return; }
-  let y = i32(g.y);
-  let z = i32(g.z);
-  let ii = x + NX * y + NXY * z;
-  let idx = u32(ii);
+  let idx = g.y * (ngr.x * 64u) + g.x;
+  if (idx >= N) { return; }
+  let ii = i32(idx);
+  let x = ii % NX;
+  let y = (ii / NX) % NY;
+  let z = ii / NXY;
   let inf = info[idx];
   if (inf == SOLIDV) { mac[idx] = vec4<f32>(0.0); return; }
   var wl = 0u;
   var bi = 0u;
   var qw0 = 0u; var qw1 = 0u; var qw2 = 0u; var qw3 = 0u; var qw4 = 0u;
   let floorT = prm.flags.x;
-  // Wandgesetz (aus dem Turbulenzkern): Wandschubspannung je Fläche (geteilt durch die Dichte) und Anteil;
-  // Normale der Oberfläche
-  var wm = vec4<f32>(0.0);
-  var wn = vec3<f32>(0.0, 0.0, 1.0);
   if (inf != 0u) {
     bi = inf - 1u;
     let b = bi * 8u;
     wl = blist[b]; qw0 = blist[b + 1u]; qw1 = blist[b + 2u]; qw2 = blist[b + 3u]; qw3 = blist[b + 4u]; qw4 = blist[b + 5u];
-    wn = bw[2u * bi].xyz;
-    wm = bw[2u * bi + 1u];
-  } else if (z == 0 && floorT == 1u) {
-    wm = bw[2u * (prm.flags.y + u32(x + NX * y)) + 1u];
   }
   var Fw = vec3<f32>(0.0);
-  var aw = vec3<f32>(0.0);
   // Ausgleich der u²-Anteile: Die an der Wand zurückgeworfenen Verteilungen tragen Anteile ~ rho·(c·u)². An einer ebenen,
   // gitterparallelen Wand bleibt davon nur rho·(u·n)·u übrig (fast null, die Strömung läuft dort entlang der Wand); an einer
   // Treppenstufe wird aber nur ein Teil der Richtungen zurückgeworfen, die Anteile heben sich nicht auf und täuschen eine
@@ -1518,7 +1685,6 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
     // u²-Anteile von go und der zurückgeworfenen Verteilung, soweit aus der eigenen Zelle (Rest aus der Nachbarzelle unten)
     if (wq) { let co = ${cuExpr(c, 'uo')}; d3 = d3 + vec3<f32>(${wf(2 * W[i] * c[0])}, ${wf(2 * W[i] * c[1])}, ${wf(2 * W[i] * c[2])}) * (ro * (4.5 * co * co - 1.5 * uuo)); }
     Fw = Fw - vec3<f32>(${c[0]}.0, ${c[1]}.0, ${c[2]}.0) * (go + f${i});
-    aw = aw + vec3<f32>(${wf(W[i] * c[0])}, ${wf(W[i] * c[1])}, ${wf(W[i] * c[2])});
   }
 `;
     // Einlass: wird nach allen anderen Richtungen gesetzt (Dichte aus den bekannten Verteilungen)
@@ -1552,6 +1718,33 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
     }
     s += `  else { f${i} = fs[${i}u * N + u32(ii - ${offExpr(c[0], c[1], c[2])})]; }\n`;
   }
+  // Eingeklemmte Richtungspaare: Liegt in Richtung c und -c je eine Wand (Spalt von einer Zelle Breite, etwa zwischen
+  // Fahrerhaus und Koffer, Reifen und Radkasten, oder zwischen Modell und Boden), prallen die beiden Verteilungen jeden
+  // Schritt aufeinander zurück: Der Impuls entlang c kehrt sich Schritt für Schritt um und klingt bei kleiner Zähigkeit
+  // nicht ab (Geschwindigkeit der Zelle ±U, Kraft auf das Modell ±20-fach, im Mittel richtig, aber Turbulenzmodell,
+  // Wandgesetz und Stabilität leiden). Deshalb werden beide Verteilungen gemittelt: Impuls entlang c null, Masse
+  // bleibt, die Zelle verhält sich wie Fluid, das zwischen zwei Wänden ruht. Am festen Boden ebenso, wenn über der
+  // Zelle eine Wand liegt (der Boden wirft alles zurück). Am glatten Boden (Spiegelung) wird stattdessen jede Verteilung
+  // von oben mit ihrem Spiegelbild gemittelt: Impuls senkrecht zum Boden null, Impuls entlang des Bodens bleibt.
+  for (let i = 1; i < 19; i++) {
+    const o = OPP[i], c = C[i];
+    if (o < i) continue;
+    const dn = c[2] === 0 ? -1 : (c[2] < 0 ? i : o);   // Richtung, deren Verteilung von oben kommt
+    let cond = `(wl & ${(1 << i) | (1 << o)}u) == ${(1 << i) | (1 << o)}u`;
+    if (dn >= 0) cond += ` || (z == 0 && floorT == 1u && (wl & ${1 << dn}u) != 0u)`;
+    s += `  if (${cond}) {
+    let m = 0.5 * (f${i} + f${o});
+    if ((wl & ${1 << i}u) != 0u) { Fw = Fw - vec3<f32>(${c[0]}.0, ${c[1]}.0, ${c[2]}.0) * (m - f${i}); }
+    if ((wl & ${1 << o}u) != 0u) { Fw = Fw + vec3<f32>(${c[0]}.0, ${c[1]}.0, ${c[2]}.0) * (m - f${o}); }
+    f${i} = m; f${o} = m;
+  }
+`;
+  }
+  for (let u = 1; u < 19; u++) {
+    if (C[u][2] !== 1) continue;
+    const d = MIR[u], c = C[d];
+    s += `  if (z == 0 && floorT == 2u && (wl & ${1 << d}u) != 0u) { let m = 0.5 * (f${u} + f${d}); Fw = Fw - vec3<f32>(${c[0]}.0, ${c[1]}.0, ${c[2]}.0) * (m - f${d}); f${u} = m; f${d} = m; }\n`;
+  }
   // Rest des Ausgleichs: bei q < 0.5 stammt ein Teil (1 - 2q) der zurückgeworfenen Verteilung aus der Nachbarzelle auf der
   // Fluidseite, mit deren Geschwindigkeit. Als Schleife (nur an Randzellen), damit der Rechenkern klein bleibt.
   s += `  if (wq) {
@@ -1575,12 +1768,13 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
 `;
   // Einlass: Wind vorgegeben, aber durchlässig für Schallwellen, die von innen ankommen (Charakteristik:
   // u = U - c_s·(rho - 1)); sonst würden sie dort voll zurückgeworfen und zwischen Einlass und Modell
-  // hin- und herlaufen. Das hält zugleich den Druck am Einlass im Mittel beim Umgebungsdruck.
+  // hin- und herlaufen. Das verankert den Druck: Hebt Versperrung oder Bodenreibung den Druck im Kanal, strömt im Mittel
+  // etwas weniger als U ein (u = U - c_s·dr); die Beiwerte werden deshalb auf die tatsächliche Einströmgeschwindigkeit bezogen.
   // Dichte aus Masse und Impuls der bekannten Verteilungen: (1 + dr)(1 - u) = 1 + s0 + 2·sm.
   const inl = [];
   for (let i = 1; i < 19; i++) if (C[i][0] === 1) inl.push(i);
   s += `  if (x == 0) {
-    let ut = prm.uin.x * prof(z);
+    let ut = (prm.uin.x + prm.aux.x) * prof(z);
     let s0 = ${sumExpr(() => 1, c => c[0] === 0)};
     let sm = ${sumExpr(() => 1, c => c[0] === -1)};
     let bb = 1.0 - ut + ${wf(1 / Math.sqrt(3))};
@@ -1602,10 +1796,10 @@ ${inl.map(i => `    f${i} = geq(${wf(W[i])}, dri, ux, uui);`).join('\n')}
   let pxy = ${sumExpr(c => c[0] * c[1])};
   let pxz = ${sumExpr(c => c[0] * c[2])};
   let pyz = ${sumExpr(c => c[1] * c[2])};
-  // Wandgesetz: Reibung rho·tau_w·Fläche entgegen der wandnahen Strömung (Fläche der Zelle an der Wand:
-  // Flächenvektor aus den Gittergewichten ihrer Wandverbindungen, auf die Wandnormale projiziert)
+  // oberste Zellreihe über rauem Boden in der stationären Rechnung: Schubspannung u*² von oben als Gegenstück zur
+  // Bodenreibung, sonst verliert das Windprofil auf dem Weg zum Modell Schwung (Richards & Hoxey)
   var dj = vec3<f32>(0.0);
-  if (wm.w > 0.0) { dj = -wm.w * rr * max(select(dot(6.0 * aw, wn), 1.0, inf == 0u), 0.0) * wm.xyz; }
+  if (prm.aux.y > 0.5 && z == NZ - 1 && floorT == 1u) { dj = vec3<f32>(rr * prm.kin.z * prm.kin.z, 0.0, 0.0); }
   var u = (vec3<f32>(jx, jy, jz) + dj - d3) / rr;
   let um = length(u);
   if (um > 0.35) { u = u * (0.35 / um); }
@@ -1659,8 +1853,8 @@ ${inl.map(i => `    f${i} = geq(${wf(W[i])}, dri, ux, uui);`).join('\n')}
     s += `  fd[${i}u * N + idx] = geq(${wf(W[i])}, drs, ${cuExpr(c, 'u')}, uu) + om1 * ${wf(W[i] * 4.5)} * (${cpcExpr(c)} - tr3)${t3};\n`;
   }
   s += `  mac[idx] = vec4<f32>(u, drs);
-  // Kraft auf das Modell: Impulsaustausch über die Wandverbindungen und die Reibung des Wandgesetzes
-  if (inf != 0u) { bforce[bi] = bforce[bi] + vec4<f32>(Fw - dj + d3, 0.0); }
+  // Kraft auf das Modell: Impulsaustausch über die Wandverbindungen (enthält die Wandschubspannung des Wandgesetzes)
+  if (inf != 0u) { bforce[bi] = bforce[bi] + vec4<f32>(Fw + d3, 0.0); }
 }
 `;
   return s;
@@ -1776,16 +1970,16 @@ fn qOf(bi: u32, d: u32) -> f32 {
   return max(f32((w >> (8u * ((d - 1u) & 3u))) & 255u) * ${wf(1 / 255)}, 0.2);
 }
 @compute @workgroup_size(64, 1, 1)
-fn main(@builtin(global_invocation_id) g: vec3<u32>) {
+fn main(@builtin(global_invocation_id) g: vec3<u32>, @builtin(num_workgroups) ngr: vec3<u32>) {
   let NX = i32(prm.dims.x);
   let NY = i32(prm.dims.y);
   let NZ = i32(prm.dims.z);
   let NXY = NX * NY;
-  let x = i32(g.x);
-  if (x >= NX) { return; }
-  let y = i32(g.y);
-  let z = i32(g.z);
-  let idx = u32(x + NX * y + NXY * z);
+  let idx = g.y * (ngr.x * 64u) + g.x;
+  if (idx >= prm.dims.w) { return; }
+  let x = i32(idx) % NX;
+  let y = (i32(idx) / NX) % NY;
+  let z = i32(idx) / NXY;
   let inf = info[idx];
   if (inf == SOLIDV) { turb[idx] = vec4<u32>(0u);${sst ? ' kwo[idx] = kwi[idx];' : ''} return; }
   let isB = inf != 0u;
@@ -1797,52 +1991,56 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let u0 = mac[idx].xyz;
   var hm: f32; var hp: f32; var vm: vec3<f32>; var vp: vec3<f32>;
   // Wandgesetz an der wandnächsten Zelle: die Geschwindigkeit an einer Sonde eine Zelle weiter draußen (entlang
-  // der Wandnormalen) ergibt u_tau und damit die Wandschubspannung tau_w = rho·u_tau². Sie wird im Schritt als
-  // Reibung abgezogen; die Zelle selbst bleibt eine gewöhnliche Zelle an einer Wand mit Haftbedingung (ein
-  // Zurücksetzen ihrer Geschwindigkeit auf das Wandgesetz würde die Impulsflüsse zur Nachbarzelle verfälschen).
-  // Anteil wmW: 0 bei kleinem y+ (Grenzschicht aufgelöst, Haftbedingung reicht), 1 im logarithmischen Bereich.
+  // der Wandnormalen) ergibt u_tau und damit die Wandschubspannung tau_w = rho·u_tau². Sie wird als wirksame
+  // Viskosität der Wandzelle angesetzt (wie die Wandfunktionen der Finite-Volumen-Programme): (nu + nu_w)·u_t/d = tau_w,
+  // so dass die Haftbedingung an der Wand genau die Wandschubspannung überträgt. (Eine Impulssenke mit nu_t = 0 in der
+  // Wandzelle, wie früher, unterbricht den turbulenten Impulstransport in die Wandzelle; bei rauem Boden kehrte die
+  // Strömung in der Bodenzelle um.) Anteil wmW: 0 bei kleinem y+ (Grenzschicht aufgelöst, Haftbedingung reicht),
+  // 1 im logarithmischen Bereich; dazwischen gemischt.
   var wall = false;
   var utau = 0.0;
   var dW = 1.0;
   var dEff = 1.0;
   var rough = false;
   var wmW = 0.0;
-  var tdir = vec3<f32>(0.0);
   var ndir = vec3<f32>(0.0, 0.0, 1.0);
   var bwi = 0u;
+  var nutLaw = 0.0;
+  let kapW = ${wf(kap)};
+  // Zusatzviskosität aus dem Wandgesetz: Reibung fr (0 laminar ... 1), Wandabstand d, tangentiale Zellgeschwindigkeit utc
   if (isB) {
     let bwv = bw[2u * bi];
     ndir = bwv.xyz; dW = bwv.w; dEff = dW;
     let yp = dW + ${wf(WM_PROBE)};
     let u3 = probeU(vec3<f32>(f32(x), f32(y), f32(z)) + ${wf(WM_PROBE)} * ndir);
-    let upn = dot(u3, ndir);
-    let upt = u3 - upn * ndir;
-    let utp = length(upt);
-    if (utp > 1e-12) { tdir = upt / utp; }
+    let utp = length(u3 - dot(u3, ndir) * ndir);
     utau = utp / spaldingUp(yp * utp / nu0);
     wmW = smoothstep(${wf(WM_YP[0])}, ${wf(WM_YP[1])}, yp * utau / nu0);
+    let utc = length(u0 - dot(u0, ndir) * ndir);
+    nutLaw = clamp(prm.uin.w * prm.ext.z * utau * utau * dW / max(utc, 1e-9) - nu0, 0.0, 4.0 * kapW * dW * utau);
     wall = true; bwi = 2u * bi + 1u;
-  } else if (z == 0 && floorT == 1u) {
+  }
+  if (z == 0 && floorT == 1u) {
+    // fester Boden (bei Randzellen des Modells am Gebäudefuß zusätzlich zum Modell: der stärkere Anteil zählt)
     let u3 = mac[idx + u32(NXY)].xyz;
-    let upt = vec3<f32>(u3.x, u3.y, 0.0);
-    let utp = length(upt);
-    if (utp > 1e-12) { tdir = upt / utp; }
-    dW = 0.5;
+    let utp = length(u3.xy);
     let z0 = prm.uin.y;
+    var utf: f32; var wmF: f32; var dF = 0.5;
     if (z0 > 0.0) {
       // rauer Boden: logarithmisches Wandgesetz mit z0 (Sonde in der Zelle darüber, Höhe 1,5)
-      utau = ${wf(kap)} * utp / log((1.5 + z0) / z0);
-      dEff = dW + z0; rough = true;
-      wmW = 1.0;
+      utf = kapW * utp / log((1.5 + z0) / z0);
+      dF = 0.5 + z0; wmF = 1.0;
     } else {
-      utau = utp / spaldingUp(1.5 * utp / nu0);
-      wmW = smoothstep(${wf(WM_YP[0])}, ${wf(WM_YP[1])}, 1.5 * utau / nu0);
+      utf = utp / spaldingUp(1.5 * utp / nu0);
+      wmF = smoothstep(${wf(WM_YP[0])}, ${wf(WM_YP[1])}, 1.5 * utf / nu0);
     }
-    wall = true; bwi = 2u * (prm.flags.y + u32(x + NX * y)) + 1u;
+    let nutF = clamp(prm.uin.w * utf * utf * 0.5 / max(length(u0.xy), 1e-9) - nu0, 0.0, 2.0 * kapW * utf);
+    if (!isB) { utau = utf; dW = 0.5; dEff = dF; rough = z0 > 0.0; wmW = wmF; nutLaw = nutF; bwi = 2u * (prm.flags.y + u32(x + NX * y)) + 1u; }
+    else if (nutF * wmF > nutLaw * wmW) { nutLaw = nutF; wmW = wmF; }
+    wall = true;
   }
-  // Wandschubspannung (je Fläche, geteilt durch die Dichte) für den Schritt
-  // am Modell nur der turbulente Anteil (bei kleiner Reynoldszahl bleibt die Grenzschicht laminar), am Boden immer
-  if (wall) { bw[bwi] = vec4<f32>(prm.uin.w * select(1.0, prm.ext.z, isB) * utau * utau * tdir, wmW); }
+  // Anteil des Wandgesetzes merken (zur Prüfung; Kräfte kommen aus dem Impulsaustausch an der Wand)
+  if (wall) { bw[bwi] = vec4<f32>(0.0, 0.0, 0.0, wmW); }
 `;
   // Seiten: [Achse, Bedingung Rand minus, Rand-Regel minus, Richtung (Wand minus), Bedingung plus, Regel plus, Richtung plus, Versatz]
   const ax = [
@@ -1888,8 +2086,8 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let DD = d11 * d11 + d22 * d22 + d33 * d33 + 2.0 * (d12 * d12 + d13 * d13 + d23 * d23);
   let cw = prm.spg.w;
   let nutL = max(cw * cw * DD * sqrt(DD) / (SS * SS * sqrt(SS) + DD * sqrt(sqrt(DD)) + 1e-30), nutML);
-  // an der Wandzelle nur der Anteil ohne Wandgesetz (sonst rieben Haftbedingung und Wandgesetz doppelt)
-  let nutOut = select(nutL, (1.0 - wmW) * nutL, wall);
+  // an der Wandzelle im logarithmischen Bereich die wirksame Viskosität des Wandgesetzes
+  let nutOut = select(nutL, mix(nutL, nutLaw, wmW), wall);
 `;
   } else {
     // k und ω der sechs Nachbarn: Fluid -> Wert, Einlass -> Einlasswerte, sonst wie die Zelle (kein Fluss)
@@ -1932,9 +2130,10 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let pk = min(nutS * 2.0 * SS, ${wf(10 * SST.bs)} * k0 * w0);
   let pw = gam * pk / max(nutS, 1e-20);
   let cd = 2.0 * (1.0 - F1) * ${wf(SST.sw2)} * dot(gk, gw) / w0;
-  // Umgebungsterme: halten k und ω der Anströmung bis zum Modell (Spalart & Rumsey)
+  // Umgebungsterme: halten k und ω der Anströmung bis zum Modell (Spalart & Rumsey); nicht im Windprofil über rauem
+  // Boden, dort sind die Einlasswerte schon das Gleichgewicht aus Erzeugung und Vernichtung
   var ambK = 0.0; var ambW = 0.0;
-  if (prm.flags.z == 1u) { let a = inflowKW(z); ambK = ${wf(SST.bs)} * a.x * a.y; ambW = ${wf(SST.b2)} * a.y * a.y; }
+  if (prm.flags.z == 1u && prm.uin.y <= 0.0) { let a = inflowKW(z); ambK = ${wf(SST.bs)} * a.x * a.y; ambW = ${wf(SST.b2)} * a.y * a.y; }
   // Aufwind-Konvektion, Diffusion über die sechs Seiten; Mitte implizit (bleibt positiv und beschränkt)
   let ux = abs(u0.x); let uy = abs(u0.y); let uz = abs(u0.z);
   let up = u0 > vec3<f32>(0.0);
@@ -1968,7 +2167,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   kwo[idx] = vec2<f32>(k1, w1);
   // laminare Grenzschicht am Modell: SST-Wirbelviskosität dort mit dem turbulenten Anteil malnehmen (wie die Mischungsweg-Viskosität)
   let nutS1 = max(select(1.0, prm.ext.z, nearModel) * ${wf(SST.a1)} * k1 / max(${wf(SST.a1)} * w1, smag * F2), nutML);
-  let nutOut = select(nutS1, (1.0 - wmW) * nutS1, wall);
+  let nutOut = select(nutS1, mix(nutS1, nutLaw, wmW), wall);
 `;
   }
   s += `  turb[idx] = vec4<u32>(pack2x16float(vec2<f32>(sxx, syy)), pack2x16float(vec2<f32>(szz, sxy)), pack2x16float(vec2<f32>(sxz, syz)), bitcast<u32>(min(nutOut, prm.spg.z)));
@@ -2005,7 +2204,8 @@ function wgslCopy() {
   const nb = [['g.x > 0u', '-', '1u'], ['g.x + 1u < D.x', '+', '1u'], ['g.y > 0u', '-', 'D.x'], ['g.y + 1u < D.y', '+', 'D.x'],
     ['g.z > 0u', '-', 'DXY'], ['g.z + 1u < D.z', '+', 'DXY']];
   let s = `
-struct CP { alpha: f32, mode: u32, refx: u32, p1: u32, dims: vec4<u32> };
+// alpha: Gewicht des neuen Felds bei der zeitlichen Mittelung (mode 1); alphaP: Gewicht beim Glätten des Drucks (mode 0)
+struct CP { alpha: f32, mode: u32, refx: u32, alphaP: f32, dims: vec4<u32> };
 @group(0) @binding(0) var<uniform> cp: CP;
 @group(0) @binding(1) var<storage, read> mac: array<vec4<f32>>;
 @group(0) @binding(2) var<storage, read> info: array<u32>;
@@ -2035,6 +2235,8 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
     let b = bitcast<u32>(sp);
     if ((b & 0x7f800000u) == 0x7f800000u || (bitcast<u32>(v.w) & 0x7f800000u) == 0x7f800000u) { atomicMax(&stat[0], 0x7f800000u); }
     else if (sp > ${wf(1.5 * U_LB)}) { atomicMax(&stat[0], b); }
+    // Dichte außerhalb [0,5; 1,5]: ebenfalls als ungültig melden (die Klammer im Schritt-Kernel verschluckt das sonst still)
+    if (abs(v.w) > 0.5) { atomicMax(&stat[0], 0x7f800000u); }
     // Bezugsdruck: Mittelwert in einer Ebene kurz hinter dem Einlass
     if (g.x == cp.refx) {
       atomicAdd(&stat[1], bitcast<u32>(i32(round(v.w * ${wf(PREF_SCALE)}))));
@@ -2042,6 +2244,13 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
     }
   }
   if (cp.mode == 1u) { let nv = mix(avg[idx], v, cp.alpha); avg[idx] = nv; v = nv; }
+  else {
+    // Druck zeitlich leicht glätten (einige Dutzend Schritte): Schallwellen und Zellenrauschen verschwinden,
+    // die Druckspuren der Wirbel bleiben (sie wandern in dieser Zeit nur wenige Zellen weit)
+    let pf = mix(avg[idx].w, v.w, cp.alphaP);
+    avg[idx] = vec4<f32>(v.xyz, pf);
+    v.w = pf;
+  }
   textureStore(tex, vec3<i32>(g), v);
 }
 `;
@@ -2116,7 +2325,12 @@ fn cmap(row: f32, t: f32) -> vec3<f32> {
   return textureSampleLevel(cmapT, samp, vec2<f32>((0.5 + clamp(t, 0.0, 1.0) * 63.0) / 64.0, row), 0.0).rgb;
 }
 fn velC(speed: f32) -> vec3<f32> { return cmap(0.25, speed * F.cm.y); }
-fn presC(drho: f32) -> vec3<f32> { return cmap(0.75, 0.5 + (drho - F.vp.w) * F.cm.z); }
+// Druck: Farbskala von -q bis +q (Staudruck), dazwischen gestaucht (Potenz F.sl.w < 1), damit auch der
+// schwache Unterdruck hinter dem Modell und die Wirbelkerne sichtbar sind, nicht nur der Staupunkt
+fn presC(drho: f32) -> vec3<f32> {
+  let c = (drho - F.vp.w) * F.cm.z;
+  return cmap(0.75, 0.5 + 0.5 * sign(c) * pow(min(abs(c), 1.0), F.sl.w));
+}
 fn colorOf(v: vec4<f32>) -> vec3<f32> {
   if (F.cm.x < 0.5) { return velC(length(v.xyz)); }
   return presC(v.w);
@@ -2342,7 +2556,7 @@ function refInflowKW(z, P) {
 }
 
 // P: { nx, ny, nz, uin, z0, pnorm, nu0, sigma, noise, sponge, floor, amb, spgX, spgY, nutMax, cw, kin, win, ustar,
-//      nb, reib, ml, wand, mlD0, mlD1, turb } (die letzten sechs wahlweise, sonst wie im Programm)
+//      nb, reib, ml, wand, mlD0, mlD1, turb, uoff, top } (die letzten acht wahlweise, sonst wie im Programm)
 function refInit(fa, fb, mac, turb, info, P) {
   const { C, W } = D3Q19, { nx, ny, nz } = P, N = nx * ny * nz;
   for (let z = 0; z < nz; z++) for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
@@ -2438,35 +2652,34 @@ function refTurb(mac, info, blist, bw, turb, P, sst, wd, kwi, kwo) {
     }
     const isB = inf !== 0, bi = isB ? inf - 1 : 0, wlm = isB ? blist[bi * B_STRIDE] : 0;
     const u0x = mac[idx * 4], u0y = mac[idx * 4 + 1], u0z = mac[idx * 4 + 2];
-    // Wandgesetz (wie im Shader): Wandschubspannung aus der Sonde eine Zelle weiter draußen
-    let wall = false, utau = 0, dW = 1, dEff = 1, rough = false, wmW = 0, bwi = 0;
-    let tdir = [0, 0, 0], ndir = [0, 0, 1];
+    // Wandgesetz (wie im Shader): u_tau aus der Sonde eine Zelle weiter draußen, als wirksame Viskosität der Wandzelle
+    let wall = false, utau = 0, dW = 1, dEff = 1, rough = false, wmW = 0, bwi = 0, nutLaw = 0;
+    let ndir = [0, 0, 1];
+    const frw = (P.reib != null ? P.reib : 1);
     if (isB) {
       ndir = [bw[bi * 8], bw[bi * 8 + 1], bw[bi * 8 + 2]]; dW = bw[bi * 8 + 3]; dEff = dW;
       const yp = dW + WM_PROBE;
       const u3 = refProbeU(mac, P, x + WM_PROBE * ndir[0], y + WM_PROBE * ndir[1], z + WM_PROBE * ndir[2]);
       const upn = u3[0] * ndir[0] + u3[1] * ndir[1] + u3[2] * ndir[2];
-      const upt = [u3[0] - upn * ndir[0], u3[1] - upn * ndir[1], u3[2] - upn * ndir[2]], utp = Math.hypot(...upt);
-      if (utp > 1e-12) tdir = upt.map(v => v / utp);
+      const utp = Math.hypot(u3[0] - upn * ndir[0], u3[1] - upn * ndir[1], u3[2] - upn * ndir[2]);
       utau = utp / refSpaldingUp(yp * utp / nu0);
       wmW = refSmooth(WM_YP[0], WM_YP[1], yp * utau / nu0);
+      const u0n = u0x * ndir[0] + u0y * ndir[1] + u0z * ndir[2];
+      const utc = Math.hypot(u0x - u0n * ndir[0], u0y - u0n * ndir[1], u0z - u0n * ndir[2]);
+      nutLaw = Math.min(Math.max(frw * (P.turb != null ? P.turb : 1) * utau * utau * dW / Math.max(utc, 1e-9) - nu0, 0), 4 * kap * dW * utau);
       wall = true; bwi = (2 * bi + 1) * 4;
-    } else if (z === 0 && P.floor === 1) {
-      const a = (idx + NXY) * 4, u3 = [mac[a], mac[a + 1], mac[a + 2]];
-      const upt = [u3[0], u3[1], 0], utp = Math.hypot(u3[0], u3[1]);
-      if (utp > 1e-12) tdir = upt.map(v => v / utp);
-      dW = 0.5;
-      if (P.z0 > 0) {
-        utau = kap * utp / Math.log((1.5 + P.z0) / P.z0); dEff = dW + P.z0; rough = true;
-        wmW = 1;
-      } else {
-        utau = utp / refSpaldingUp(1.5 * utp / nu0);
-        wmW = refSmooth(WM_YP[0], WM_YP[1], 1.5 * utau / nu0);
-      }
-      wall = true; bwi = (2 * (P.nb + x + NX * y) + 1) * 4;
     }
-    const fr = (P.reib != null ? P.reib : 1) * (isB ? (P.turb != null ? P.turb : 1) : 1);
-    if (wall) { bw[bwi] = fr * utau * utau * tdir[0]; bw[bwi + 1] = fr * utau * utau * tdir[1]; bw[bwi + 2] = fr * utau * utau * tdir[2]; bw[bwi + 3] = wmW; }
+    if (z === 0 && P.floor === 1) {
+      const a = (idx + NXY) * 4, utp = Math.hypot(mac[a], mac[a + 1]);
+      let utf, wmF, dF = 0.5;
+      if (P.z0 > 0) { utf = kap * utp / Math.log((1.5 + P.z0) / P.z0); dF = 0.5 + P.z0; wmF = 1; }
+      else { utf = utp / refSpaldingUp(1.5 * utp / nu0); wmF = refSmooth(WM_YP[0], WM_YP[1], 1.5 * utf / nu0); }
+      const nutF = Math.min(Math.max(frw * utf * utf * 0.5 / Math.max(Math.hypot(u0x, u0y), 1e-9) - nu0, 0), 2 * kap * utf);
+      if (!isB) { utau = utf; dW = 0.5; dEff = dF; rough = P.z0 > 0; wmW = wmF; nutLaw = nutF; bwi = (2 * (P.nb + x + NX * y) + 1) * 4; }
+      else if (nutF * wmF > nutLaw * wmW) { nutLaw = nutF; wmW = wmF; }
+      wall = true;
+    }
+    if (wall) { bw[bwi] = 0; bw[bwi + 1] = 0; bw[bwi + 2] = 0; bw[bwi + 3] = wmW; }
     // Gradient: Spalte a = d u / d x_a
     for (let a = 0; a < 3; a++) {
       const pos = a === 0 ? x : a === 1 ? y : z, n = a === 0 ? NX : a === 1 ? NY : NZ, off = offs[a];
@@ -2511,7 +2724,7 @@ function refTurb(mac, info, blist, bw, turb, P, sst, wd, kwi, kwo) {
       const d11 = h11 - trh, d22 = h22 - trh, d33 = h33 - trh, d12 = 0.5 * (h12 + h21), d13 = 0.5 * (h13 + h31), d23 = 0.5 * (h23 + h32);
       const DD = d11 * d11 + d22 * d22 + d33 * d33 + 2 * (d12 * d12 + d13 * d13 + d23 * d23);
       const nutL = Math.max(P.cw * P.cw * DD * Math.sqrt(DD) / (SS * SS * Math.sqrt(SS) + DD * Math.sqrt(Math.sqrt(DD)) + 1e-30), nutML);
-      nutOut = wall ? (1 - wmW) * nutL : nutL;
+      nutOut = wall ? nutL + (nutLaw - nutL) * wmW : nutL;
     } else {
       const k0 = Math.max(kwi[idx * 2], KMIN), w0 = Math.max(kwi[idx * 2 + 1], WMIN);
       // Nachbarn: xm, xp, ym, yp, zm, zp
@@ -2542,7 +2755,7 @@ function refTurb(mac, info, blist, bw, turb, P, sst, wd, kwi, kwo) {
       const pw = gam * pk / Math.max(nutS, 1e-20);
       const cd = 2 * (1 - F1) * SST.sw2 * gkgw / w0;
       let ambK = 0, ambW = 0;
-      if (P.amb) { const a = refInflowKW(z, P); ambK = SST.bs * a[0] * a[1]; ambW = SST.b2 * a[1] * a[1]; }
+      if (P.amb && !(P.z0 > 0)) { const a = refInflowKW(z, P); ambK = SST.bs * a[0] * a[1]; ambW = SST.b2 * a[1] * a[1]; }
       const ux = Math.abs(u0x), uy = Math.abs(u0y), uz = Math.abs(u0z);
       const ak = ux * (u0x > 0 ? kxm : kxp) + uy * (u0y > 0 ? kym : kyp) + uz * (u0z > 0 ? kzm : kzp);
       const aw = ux * (u0x > 0 ? wxm : wxp) + uy * (u0y > 0 ? wym : wyp) + uz * (u0z > 0 ? wzm : wzp);
@@ -2568,7 +2781,7 @@ function refTurb(mac, info, blist, bw, turb, P, sst, wd, kwi, kwo) {
       const k1 = Math.max((k0 + ak + nk + pkU + ambK) / (1 + au + sdk + SST.bs * w0), KMIN);
       kwo[idx * 2] = k1; kwo[idx * 2 + 1] = w1;
       const nutS1 = Math.max((nearModel ? turbF : 1) * SST.a1 * k1 / Math.max(SST.a1 * w1, smag * F2), nutML);
-      nutOut = wall ? (1 - wmW) * nutS1 : nutS1;
+      nutOut = wall ? nutS1 + (nutLaw - nutS1) * wmW : nutS1;
     }
     const o = idx * 7;
     turb[o] = f16r(sxx); turb[o + 1] = f16r(syy); turb[o + 2] = f16r(szz); turb[o + 3] = f16r(sxy); turb[o + 4] = f16r(sxz); turb[o + 5] = f16r(syz);
@@ -2582,11 +2795,9 @@ function refStep(fs, fd, info, blist, turb, mac, bforce, P, bw) {
   for (let z = 0; z < NZ; z++) for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
     const ii = x + NX * y + NXY * z, inf = info[ii];
     if (inf === INFO_SOLID) { mac[ii * 4] = mac[ii * 4 + 1] = mac[ii * 4 + 2] = mac[ii * 4 + 3] = 0; continue; }
-    let wl = 0, bi = 0, wo = -1, wnx = 0, wny = 0, wnz = 1;
-    if (inf !== 0) { bi = inf - 1; wl = blist[bi * B_STRIDE]; wo = (2 * bi + 1) * 4; wnx = bw[bi * 8]; wny = bw[bi * 8 + 1]; wnz = bw[bi * 8 + 2]; }
-    else if (z === 0 && P.floor === 1) wo = (2 * (P.nb + x + NX * y) + 1) * 4;
-    const ww = wo >= 0 ? bw[wo + 3] : 0;
-    let Fx = 0, Fy = 0, Fz = 0, ax = 0, ay = 0, az = 0;
+    let wl = 0, bi = 0;
+    if (inf !== 0) { bi = inf - 1; wl = blist[bi * B_STRIDE]; }
+    let Fx = 0, Fy = 0, Fz = 0;
     // Ausgleich der u²-Anteile an Treppenstufen (wie im Shader)
     const wq = (P.wand == null || P.wand !== 0) && inf !== 0;
     const uox = wq ? mac[ii * 4] : 0, uoy = wq ? mac[ii * 4 + 1] : 0, uoz = wq ? mac[ii * 4 + 2] : 0, dro = wq ? mac[ii * 4 + 3] : 0;
@@ -2619,7 +2830,6 @@ function refStep(fs, fd, info, blist, turb, mac, bforce, P, bw) {
         d3x += ex * e; d3y += ey * e; d3z += ez * e;
         const m = go + f[i];
         Fx -= ex * m; Fy -= ey * m; Fz -= ez * m;
-        ax += W[i] * ex; ay += W[i] * ey; az += W[i] * ez;
       } else if (ex === 1 && x === 0) f[i] = 0;
       else if (ez === 1 && z === 0) {
         if (P.floor === 1) f[i] = fs[o * N + ii];
@@ -2639,8 +2849,30 @@ function refStep(fs, fd, info, blist, turb, mac, bforce, P, bw) {
         f[i] = info[s] === INFO_SOLID ? fs[o * N + ii] : fs[i * N + s];
       } else f[i] = fs[i * N + ii - (ex + ey * NX + ez * NXY)];
     }
+    // eingeklemmte Richtungspaare mitteln (wie im Shader)
+    for (let i = 1; i < 19; i++) {
+      const o = OPP[i];
+      if (o < i) continue;
+      const ex = cx[i], ey = cy[i], ez = cz[i], dn = ez === 0 ? -1 : (ez < 0 ? i : o);
+      const both = (wl & (1 << i)) && (wl & (1 << o));
+      const fl = dn >= 0 && z === 0 && P.floor === 1 && (wl & (1 << dn));
+      if (!both && !fl) continue;
+      const m = 0.5 * (f[i] + f[o]);
+      if (wl & (1 << i)) { Fx -= ex * (m - f[i]); Fy -= ey * (m - f[i]); Fz -= ez * (m - f[i]); }
+      if (wl & (1 << o)) { Fx += ex * (m - f[o]); Fy += ey * (m - f[o]); Fz += ez * (m - f[o]); }
+      f[i] = m; f[o] = m;
+    }
+    // glatter Boden mit Wand darüber: Verteilung von oben mit ihrem Spiegelbild mitteln (wie im Shader)
+    if (z === 0 && P.floor === 2) for (let u = 1; u < 19; u++) {
+      if (cz[u] !== 1) continue;
+      const d = mir[u];
+      if (!(wl & (1 << d))) continue;
+      const m = 0.5 * (f[u] + f[d]);
+      Fx -= cx[d] * (m - f[d]); Fy -= cy[d] * (m - f[d]); Fz -= cz[d] * (m - f[d]);
+      f[u] = m; f[d] = m;
+    }
     if (x === 0) {
-      const ut = P.uin * refProf(z, P), cs = 1 / Math.sqrt(3);
+      const ut = (P.uin + (P.uoff || 0)) * refProf(z, P), cs = 1 / Math.sqrt(3);
       let s0 = 0, sm = 0;
       for (let i = 0; i < 19; i++) { if (cx[i] === 0) s0 += f[i]; else if (cx[i] === -1) sm += f[i]; }
       const bb = 1 - ut + cs, kb = s0 + 2 * sm + ut;
@@ -2656,13 +2888,9 @@ function refStep(fs, fd, info, blist, turb, mac, bforce, P, bw) {
       pxy += v * ex * ey; pxz += v * ex * ez; pyz += v * ey * ez;
     }
     const rr = Math.min(3, Math.max(0.3, 1 + dr)), drc = rr - 1;
-    // Wandgesetz: Reibung rho·tau_w·Fläche entgegen der wandnahen Strömung (wie im Shader)
-    let djx = 0, djy = 0, djz = 0;
-    if (ww > 0) {
-      const Am = ww * rr * Math.max(inf === 0 ? 1 : 6 * (ax * wnx + ay * wny + az * wnz), 0);
-      djx = -Am * bw[wo]; djy = -Am * bw[wo + 1]; djz = -Am * bw[wo + 2];
-    }
-    let ux = (jx + djx - d3x) / rr, uy = (jy + djy - d3y) / rr, uz = (jz + djz - d3z) / rr;
+    // oberste Zellreihe über rauem Boden (stationär): Schubspannung u*² von oben (wie im Shader)
+    const djx = (P.top && z === NZ - 1 && P.floor === 1) ? rr * P.ustar * P.ustar : 0;
+    let ux = (jx + djx - d3x) / rr, uy = (jy - d3y) / rr, uz = (jz - d3z) / rr;
     const um = Math.hypot(ux, uy, uz);
     if (um > 0.35) { const k = 0.35 / um; ux *= k; uy *= k; uz *= k; }
     const dOut = NX - 1 - x;
@@ -2693,7 +2921,7 @@ function refStep(fs, fd, info, blist, turb, mac, bforce, P, bw) {
       fd[i * N + ii] = refGeq(W[i], drs, ex * ux + ey * uy + ez * uz, uu) + om1 * W[i] * 4.5 * (cpc - tr3) + W[i] * 13.5 * t3;
     }
     mac[ii * 4] = ux; mac[ii * 4 + 1] = uy; mac[ii * 4 + 2] = uz; mac[ii * 4 + 3] = drs;
-    if (inf !== 0) { bforce[bi * 4] += Fx - djx + d3x; bforce[bi * 4 + 1] += Fy - djy + d3y; bforce[bi * 4 + 2] += Fz - djz + d3z; }
+    if (inf !== 0) { bforce[bi * 4] += Fx + d3x; bforce[bi * 4 + 1] += Fy + d3y; bforce[bi * 4 + 2] += Fz + d3z; }
   }
 }
 
@@ -2733,6 +2961,7 @@ function refCase(kind) {
     kin: 1.5 * (0.01 * U) ** 2, win: 1.5 * (0.01 * U) ** 2 / (5 * nu0), ustar: z0 > 0 ? SST.kap * U * pnorm : 0,
     wand: kind === 'fest' ? 0 : 1,   // mit und ohne Ausgleich der u²-Anteile prüfen
     turb: kind === 'frei' ? 0.5 : 1,   // Grenzschicht am Modell halb turbulent (prüft den Anteil)
+    uoff: kind === 'glatt' ? 0.01 : 0, top: kind === 'fest',   // Einlasszuschlag und Schubspannung von oben mitprüfen
   };
   P.nb = walls.nb;
   return { nx, ny, nz, N, solid: vox.solid, walls, wd, P, kind, bw: makeBW(walls, nx, ny) };
@@ -2746,6 +2975,8 @@ const SPONGE = 0.08;       // Stärke der Schwammzone am Rand
 const C_WALE = 0.5;        // Konstante des WALE-Modells
 const NUT_MAX = 0.5;       // größte Wirbelviskosität im Gitter (Relaxationszeit höchstens 2)
 const HRR_SIGMA = 0.98;    // Anteil der Spannungen aus den Verteilungen (Rest aus Geschwindigkeitsdifferenzen)
+const PRES_GAMMA = 0.7;    // Druckskala: Farbe ~ |Cp|^0.7 (schwache Unterdrücke sichtbar, Staupunkt weiter rot)
+const PRES_TAU = 50;       // Druck in der Anzeige über etwa so viele Schritte geglättet (Schall, Zellenrauschen)
 const LEVELS = [
   { name: 'sehr grob', cells: 0.5e6 }, { name: 'grob', cells: 1e6 }, { name: 'mittel', cells: 2e6 },
   { name: 'fein', cells: 4e6 }, { name: 'sehr fein', cells: 8e6 }, { name: 'extrem fein', cells: 16e6 }, { name: 'maximal', cells: 24e6 },
@@ -2793,7 +3024,7 @@ class Sim {
     r.fA = B(19 * N * 4, S | CS); r.fB = B(19 * N * 4, S | CS);
     r.info = B(N * 4, S | CD);
     r.mac = B(N * 16, S | CS);
-    r.avg = B(N * 16, S);
+    r.avg = B(N * 16, S | CD);
     r.turb = B(N * 16, S | CS);
     r.blist = B(Math.max(1, nb) * B_STRIDE * 4, S | CD);
     r.bw = B((nb + nx * ny) * 32, S | CD | CS);
@@ -2803,7 +3034,7 @@ class Sim {
     r.rp = B(16, BU().UNIFORM | CD);
     r.wd = B(N * 4, S | CD);
     if (sst) { r.kwA = B(N * 8, S | CS); r.kwB = B(N * 8, S | CS); }
-    r.prm = B(112, BU().UNIFORM | CD);
+    r.prm = B(128, BU().UNIFORM | CD);
     r.cp = B(32, BU().UNIFORM | CD);
     r.sp = B(48, BU().UNIFORM | CD);
     r.stat = B(16, S | CD | CS);
@@ -2832,7 +3063,7 @@ class Sim {
     try { P = await simPipelines(dev); } catch (e) { this.r = r; this.destroy(); throw e; }
     r.P = P;
     const bg = (p, ent) => dev.createBindGroup({ layout: p.getBindGroupLayout(0), entries: ent.map((x, i) => ({ binding: i, resource: x.createView ? x.createView() : (x.buffer ? x : { buffer: x }) })) });
-    r.bgStep = [bg(P.step, [r.prm, r.fA, r.fB, r.info, r.blist, r.turb, r.mac, r.bforce, r.bw]), bg(P.step, [r.prm, r.fB, r.fA, r.info, r.blist, r.turb, r.mac, r.bforce, r.bw])];
+    r.bgStep = [bg(P.step, [r.prm, r.fA, r.fB, r.info, r.blist, r.turb, r.mac, r.bforce]), bg(P.step, [r.prm, r.fB, r.fA, r.info, r.blist, r.turb, r.mac, r.bforce])];
     if (sst) r.bgTurb = [bg(P.sst, [r.prm, r.mac, r.info, r.blist, r.bw, r.turb, r.wd, r.kwA, r.kwB]), bg(P.sst, [r.prm, r.mac, r.info, r.blist, r.bw, r.turb, r.wd, r.kwB, r.kwA])];
     else { const b = bg(P.les, [r.prm, r.mac, r.info, r.blist, r.bw, r.turb, r.wd]); r.bgTurb = [b, b]; }
     r.pTurb = sst ? P.sst : P.les;
@@ -2851,9 +3082,10 @@ class Sim {
     this.tracePipe = tracePipe;
   }
 
-  // p: { nu0, sigma, noise, sponge, floor, z0, pnorm, amb, nutMax, cw, kin, win, ustar, reib, ml, wand, mlD0, mlD1, turb (Anteil turbulente Grenzschicht am Modell) }
+  // p: { nu0, sigma, noise, sponge, floor, z0, pnorm, amb, nutMax, cw, kin, win, ustar, reib, ml, wand, mlD0, mlD1, turb (Anteil turbulente
+  //      Grenzschicht am Modell), uoff (Zuschlag zur Einlassgeschwindigkeit), top (Schubspannung von oben, stationär über rauem Boden) }
   setParams(p) {
-    const r = this.r, d = new ArrayBuffer(112), f = new Float32Array(d), u = new Uint32Array(d);
+    const r = this.r, d = new ArrayBuffer(128), f = new Float32Array(d), u = new Uint32Array(d);
     f.set([U_LB, p.z0 || 0, p.pnorm || 0, p.reib != null ? p.reib : 1], 0);
     f.set([p.nu0, p.sigma != null ? p.sigma : HRR_SIGMA, p.noise != null ? p.noise : 0.02, p.sponge != null ? p.sponge : SPONGE], 4);
     u.set([p.floor || 0, r.nb, p.amb ? 1 : 0, p.wand === 0 ? 0 : 1], 8);
@@ -2861,12 +3093,14 @@ class Sim {
     f.set([spongeW(r.nx), spongeW(Math.min(r.ny, r.nz)), p.nutMax != null ? p.nutMax : NUT_MAX, p.cw != null ? p.cw : C_WALE], 16);
     f.set([p.kin || 0, p.win || 0, p.ustar || 0, p.ml != null ? p.ml : 1], 20);
     f.set([p.mlD0 != null ? p.mlD0 : ML_D[0], p.mlD1 != null ? p.mlD1 : ML_D[1], p.turb != null ? p.turb : 1, 0], 24);
+    f.set([p.uoff || 0, p.top ? 1 : 0, 0, 0], 28);
     this.dev.queue.writeBuffer(r.prm, 0, d);
   }
 
   init(enc) {
     const r = this.r;
     enc.clearBuffer(r.bforce);
+    enc.clearBuffer(r.avg);   // sonst überlebt ein NaN aus einer instabilen Rechnung im Mittelwertfeld den Neustart
     const p = enc.beginComputePass();
     p.setPipeline(r.P.init); p.setBindGroup(0, r.bgInit);
     p.dispatchWorkgroups(Math.ceil(r.nx / 64), r.ny, r.nz);
@@ -2876,13 +3110,13 @@ class Sim {
   }
 
   steps(enc, k) {
-    const r = this.r, gx = Math.ceil(r.nx / 64);
+    const r = this.r, G = Math.ceil(r.N / 64), gy = Math.ceil(G / 32768), gx = Math.ceil(G / gy);   // flach über alle Zellen
     const one = (this.passMode || SIM_PASS_MODE) !== 'each';
     let p = one ? enc.beginComputePass() : null;
     for (let i = 0; i < k; i++) {
       if (!one) p = enc.beginComputePass();
-      p.setPipeline(r.pTurb); p.setBindGroup(0, r.bgTurb[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz);
-      p.setPipeline(r.P.step); p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, r.ny, r.nz);
+      p.setPipeline(r.pTurb); p.setBindGroup(0, r.bgTurb[this.parity]); p.dispatchWorkgroups(gx, gy);
+      p.setPipeline(r.P.step); p.setBindGroup(0, r.bgStep[this.parity]); p.dispatchWorkgroups(gx, gy);
       this.parity ^= 1;
       if (!one) p.end();
     }
@@ -2913,10 +3147,11 @@ class Sim {
     } catch (e) { return null; } finally { if (this.r === r) r.forceBusy = false; }
   }
 
-  copy(enc, mode, alpha) {
+  // mode 0: Augenblicksfeld (Druck mit Gewicht alphaP zeitlich geglättet), 1: zeitliches Mittel mit Gewicht alpha
+  copy(enc, mode, alpha, alphaP = 1) {
     const r = this.r;
-    const d = new ArrayBuffer(32), u = new Uint32Array(d);
-    new Float32Array(d)[0] = alpha; u[1] = mode; u[2] = Math.min(3, r.nx - 1); u.set([r.nx, r.ny, r.nz, 0], 4);
+    const d = new ArrayBuffer(32), u = new Uint32Array(d), f = new Float32Array(d);
+    f[0] = alpha; u[1] = mode; u[2] = Math.min(3, r.nx - 1); f[3] = alphaP; u.set([r.nx, r.ny, r.nz, 0], 4);
     this.dev.queue.writeBuffer(r.cp, 0, d);
     const p = enc.beginComputePass();
     p.setPipeline(r.P.copy); p.setBindGroup(0, r.bgCopy);
@@ -3140,7 +3375,7 @@ class Renderer {
     fr.set([sc.dims[0], sc.dims[1], sc.dims[2], sc.hasField ? 1 : 0], 52);
     fr.set([this.size[0], this.size[1], sc.lineWidth, sc.pRef || 0], 56);
     fr.set([sc.colorMode, sc.velScale, sc.presScale, sc.surface ? 1 : 0], 60);
-    fr.set([sc.sliceAxis, sc.slicePos, 0.94, 0], 64);
+    fr.set([sc.sliceAxis, sc.slicePos, 0.94, PRES_GAMMA], 64);
     fr.set([sc.ground ? 1 : 0, sc.gridStep, sc.groundR, 0], 68);
     fr.set([sc.center[0], sc.center[1], sc.center[2], 0], 72);
     fr.set([sc.time, sc.pulsePeriod, sc.pulseRate, sc.animate ? 1 : 0], 76);
@@ -3299,10 +3534,11 @@ const VEL_RANGE = 1.8;
 const FLOW_TIME = 40;     // Sekunden für einen Durchlauf der Luft durch den Kanal bei der empfohlenen Stufe
 const MAX_SPF = 200;      // höchstens so viele Rechenschritte je Bild
 const Z0_GROUND = 0.05;   // Rauigkeitslänge des Bodens bei Gebäuden, m (offenes Gelände)
-const TU_INFLOW = 0.005;  // Turbulenzgrad der Anströmung (stationär)
 const SETTLE_PASSES = 2;  // so viele Durchläufe, bis die Strömung als eingelaufen gilt
+const UMAX_BAD = Math.min(3.3 * U_LB, 0.34);   // ab dieser Geschwindigkeit im Gitter gilt die Rechnung als instabil (unter der Klammer 0,35 im Schritt-Kernel)
 // Abstände des Modells zu den Kanalrändern (Vielfache der Modellgröße s)
 const MARGINS = { up: 1.5, down: 3.5, side: 1.5 };
+const BLOCKAGE_MAX = 0.07;   // größter Anteil des Kanalquerschnitts, den das Modell (Hüllquader) versperren darf
 // Dämpfung nach Instabilität: Anteil sigma der Stoßregel und kleinste Viskosität
 const DAMP_LEVELS = [{ sigma: HRR_SIGMA, nuMin: 0 }, { sigma: 0.95, nuMin: 2e-5 }, { sigma: 0.9, nuMin: 1e-4 }, { sigma: 0.8, nuMin: 5e-4 }];
 const nLinesOf = (v) => Math.round(10 * Math.pow(150, v / 100));
@@ -3326,9 +3562,23 @@ function makeDomain(model, wind, cells) {
     for (let k = 0; k < 3; k++) { if (q[k] < lo[k]) lo[k] = q[k]; if (q[k] > hi[k]) hi[k] = q[k]; }
   }
   const E = [0, 1, 2].map(k => hi[k] - lo[k]), maxE = Math.max(...E);
-  const s = clamp(Math.cbrt(Math.max(E[0] * E[1] * E[2], 1e-12)), 0.3 * maxE, maxE);
+  // Bezugslänge für die Ränder: Kubikwurzel des Volumens, bei flachen Modellen (Platte, Wand, Schild) aber mindestens
+  // nach der Stirnfläche. Eine Platte quer zum Wind bekam sonst nur einen kurzen Nachlauf und versperrte ein Fünftel des
+  // Kanals: Der Rücklauf des Nachlaufs erreichte den Auslass, die Masse staute sich, der Einlass kehrte um (Rechnung
+  // instabil). Nachlauf mindestens drei Stirnbreiten, Versperrung höchstens BLOCKAGE_MAX.
+  const Af = Math.max(E[1] * E[2], 1e-9), sf = Math.sqrt(Af);
+  const s = Math.max(clamp(Math.cbrt(Math.max(E[0] * E[1] * E[2], 1e-12)), 0.3 * maxE, maxE), 0.7 * sf);
   const M = App.margins || MARGINS;
-  const up = M.up * s, down = M.down * s, side = M.side * s, top = M.side * s, bottom = ground ? 0 : M.side * s;
+  const up = M.up * s, down = Math.max(M.down * s, 3 * sf);
+  let side = M.side * s;
+  if (!App.margins) {
+    const g = ground ? 1 : 2;   // Deckenrand (und Bodenrand ohne Boden) ebenso groß wie der Seitenrand
+    if (Af / ((E[1] + 2 * side) * (E[2] + g * side)) > BLOCKAGE_MAX) {
+      const a = 2 * g, b = g * E[1] + 2 * E[2], c = E[1] * E[2] - Af / BLOCKAGE_MAX;
+      side = (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
+    }
+  }
+  const top = side, bottom = ground ? 0 : side;
   const Lx = E[0] + up + down, Ly = E[1] + 2 * side, Lz = E[2] + top + bottom;
   const dx = Math.cbrt(Lx * Ly * Lz / cells);
   const nx = Math.max(24, Math.round(Lx / dx)), ny = Math.max(12, Math.round(Ly / dx)), nz = Math.max(12, Math.round(Lz / dx));
@@ -3372,16 +3622,22 @@ function physParams() {
   const nuPhys = NU_AIR * U_LB / (U * d.dx);
   const lv = DAMP_LEVELS[Math.min(App.damp, DAMP_LEVELS.length - 1)];
   const nu0 = Math.max(nuPhys, lv.nuMin, App.nuOverride || 0);
-  const kin = 1.5 * (TU_INFLOW * U_LB) ** 2;
+  // Anströmung für k-ω SST nach Spalart & Rumsey (2007): k = 10⁻⁶ U², ω = 5 U/L (L = Bezugslänge des Modells in Zellen);
+  // die Umgebungsterme im Turbulenzkern halten beide bis zum Modell. (Vorher war ω rund 30-mal zu groß: die Vernichtung
+  // β*·k·ω überwog in freien Scherschichten die Erzeugung, der Nachlauf blieb in der stationären Rechnung laminar.)
+  const Lref = App.model ? App.model.meta.ref / d.dx : 50;
+  const kin = 1e-6 * U_LB * U_LB, win = 5 * U_LB / Lref;
   const pnorm = d.z0 > 0 ? 1 / Math.log((d.href + d.z0) / d.z0) : 0;
   return Object.assign({
     nu0, nuPhys, floor: d.floor, z0: d.z0, pnorm, amb: 1,
     sigma: QS.has('sigma') ? +QS.get('sigma') : lv.sigma, cw: QS.has('cw') ? +QS.get('cw') : C_WALE, nutMax: NUT_MAX,
-    kin, win: kin / (5 * nu0), ustar: d.z0 > 0 ? SST.kap * U_LB * pnorm : 0,
+    kin, win, ustar: d.z0 > 0 ? SST.kap * U_LB * pnorm : 0,
     sponge: QS.has('sponge') ? +QS.get('sponge') : null, noise: QS.has('noise') ? +QS.get('noise') : null,
     reib: App.reib != null ? App.reib : (QS.has('reibung') ? +QS.get('reibung') : 1),
     ml: App.ml != null ? App.ml : (QS.has('ml') ? +QS.get('ml') : 1), turb,
     wand: QS.has('wand') ? +QS.get('wand') : 1,
+    // Schubspannung von oben nur stationär über rauem Boden
+    top: App.mode === 'sst' && d.floor === 1 && d.z0 > 0,
   }, App.over || {});   // App.over: Werte für Prüfläufe (über die Prüfschnittstelle)
 }
 
@@ -3440,14 +3696,18 @@ async function doRebuild(token) {
       dom.aref = projectedArea(tw, 2, 1000 / ext) / (dom.dx * dom.dx); dom.arefName = meta.refAreaName || 'Grundfläche';
     }
     else if (meta.refArea) { dom.aref = meta.refArea / (dom.dx * dom.dx); dom.arefName = meta.refAreaName || 'Bezugsfläche'; }
-    else { dom.aref = projectedArea(tri, 0); dom.arefName = 'Stirnfläche'; }
+    else {
+      dom.aref = projectedArea(tri, 0); dom.arefName = 'Stirnfläche';
+      // Modell ohne Stirnfläche (ebene Platte längs zum Wind): Beiwerte auf die Grundfläche beziehen statt durch 0 zu teilen
+      if (dom.aref < 1) { dom.aref = Math.max(projectedArea(tri, 2), 1); dom.arefName = 'Grundfläche (keine Stirnfläche)'; }
+    }
     if (token !== App.buildToken) return;
     showBusy('Gitter wird angelegt …'); await pause();
     App.renderer.setSim(null);
     await App.sim.build(dom, { info: walls.info, blist: walls.blist, bw: makeBW(walls, dom.nx, dom.ny), nb: walls.nb, solid: vox.solid, wd }, sst, App.renderer.tracePipe, App.renderer.sampler);
     if (token !== App.buildToken) return;
-    dom.solidCount = vox.count; dom.openMesh = vox.openMesh; dom.sst = sst;
-    dom.walls = { nb: walls.nb, links: walls.links, misses: walls.misses, V: walls.V };
+    dom.solidCount = walls.nSolid; dom.openMesh = vox.openMesh; dom.sst = sst;
+    dom.walls = { nb: walls.nb, links: walls.links, misses: walls.misses, sealed: walls.sealed, V: walls.V };
     App.dom = dom; App.preview = null;
     App.renderer.setSim(App.sim);
     App.sim.setParams(physParams());
@@ -3455,8 +3715,16 @@ async function doRebuild(token) {
     App.steps = 0; App.avgReset = true; App.restarts = 0; resetForces();
     hideBusy();
     App.building = false;
-    if (vox.count === 0) toast('Das Modell ist kleiner als eine Zelle. Bitte größer machen oder die Genauigkeit erhöhen.');
-    else if (vox.openMesh) toast('Das Modell ist nicht ganz geschlossen. Es wird als dünne Wand gerechnet.');
+    const span = Math.max(dom.mhi[0] - dom.mlo[0], dom.mhi[1] - dom.mlo[1], dom.mhi[2] - dom.mlo[2]);
+    // Hinweis zum Gitter; ein Hinweis vom Laden der Datei (kurz davor) bleibt davor stehen, sonst ginge er verloren
+    const pre = App.loadNote ? App.loadNote + ' ' : '';
+    App.loadNote = '';
+    if (walls.nSolid === 0 && walls.nb === 0) toast(pre + 'Das Modell ist kleiner als eine Zelle. Bitte größer machen oder die Genauigkeit erhöhen.');
+    else if (span < 3) toast(pre + 'Das Modell ist nur ' + fmt(span, 1) + ' Zellen groß. Die Beiwerte sind so nicht brauchbar; bitte größer machen oder die Genauigkeit erhöhen.');
+    else if (walls.nSolid === 0) toast(pre + 'Das Modell ist überall dünner als eine Zelle. Es wird als dünne Wand gerechnet.');
+    else if (vox.openMesh) toast(pre + 'Das Modell ist nicht ganz geschlossen. Es wird als dünne Wand gerechnet.');
+    else if (walls.misses > 0.05 * walls.links) toast(pre + 'Bei ' + fmt(100 * walls.misses / walls.links) + ' % der Wandverbindungen wurde kein Dreieck gefunden (Netz mit Löchern?). Die Wand liegt dort in Zellmitte.');
+    else if (walls.sealed > 0) toast(pre + fmt(walls.sealed) + ' eingeschlossene Zellen im Modell (Hohlräume ohne Verbindung nach außen) zählen als fest.');
     updateLevelUI(); updateHud(true);
     if (App.resumeAfterBuild) { App.resumeAfterBuild = false; startRun(); }
   } catch (e) {
@@ -3556,6 +3824,10 @@ function modelChanged() {
   rebuild();
 }
 
+// Liegt die Unterseite bei 0 und ist das Modell nicht nur eine flache Scheibe, steht es vermutlich auf dem Boden.
+// (Eine um 0 zentrierte dünne Platte hat lo ≈ 0 und würde sonst unter die erste Zellschicht gelegt.)
+function guessGround(b, k, ext) { return Math.abs(b.lo[k]) < 0.01 * ext && b.hi[k] > 0.1 * ext; }
+
 async function loadFile(file) {
   if (!file) return;
   const name = file.name, lower = name.toLowerCase();
@@ -3564,16 +3836,17 @@ async function loadFile(file) {
     let raw;
     if (lower.endsWith('.obj')) raw = parseOBJ(await file.text());
     else raw = parseSTL(await file.arrayBuffer());
+    const nRead = raw.length / 9, note = lower.endsWith('.obj') ? '' : parseSTL.note;
     raw = cleanTriangles(raw);
-    if (raw.length < 9) throw new Error('Die Datei enthält keine Dreiecke.');
+    if (raw.length < 9) throw new Error(nRead ? `Alle ${fmt(nRead)} Dreiecke sind entartet (Fläche null). Liegen die Koordinaten sehr weit vom Ursprung oder sind sie sehr groß?` : 'Die Datei enthält keine Dreiecke.');
     if (raw.length / 9 > 3e6) throw new Error('Das Modell hat mehr als 3 Mio. Dreiecke. Bitte vorher vereinfachen.');
     const ext = rawExtent(raw), rb = meshBounds(raw);
-    // liegt die Unterseite bei z = 0, steht das Modell vermutlich auf dem Boden
-    const onGround = Math.abs(rb.lo[2]) < 0.01 * ext && rb.hi[2] > 0;
-    App.upload = { raw, name, upY: false, turn: 0, ground: onGround, kind: 'fixed', size: ext > 50 ? ext / 1000 : ext, ext };
-    hideBusy();
-    applyUpload();
-    toast(`${name} geladen: ${fmt(raw.length / 9)} Dreiecke. Größe und Ausrichtung bitte prüfen.`);
+    App.upload = { raw, name, upY: false, turn: 0, ground: guessGround(rb, 2, ext), kind: 'fixed', size: ext > 50 ? ext / 1000 : ext, ext };
+    showBusy('Modell wird aufbereitet …'); await new Promise(r => setTimeout(r, 20));
+    applyUpload();   // blendet die Anzeige nach dem Gitteraufbau selbst aus
+    const dropped = cleanTriangles.dropped ? ` ${fmt(cleanTriangles.dropped)} entartete Dreiecke weggelassen.` : '';
+    App.loadNote = `${name} geladen: ${fmt(raw.length / 9)} Dreiecke.${dropped}${note ? ' ' + note : ''}`;
+    toast(App.loadNote + ' Größe und Ausrichtung bitte prüfen.');
   } catch (e) {
     hideBusy();
     toast('Die Datei ließ sich nicht laden: ' + (e.message || e));
@@ -3688,8 +3961,15 @@ function updateLegend() {
     const max = VEL_RANGE * U, st = niceStep(max, 4), dec = st < 1 ? (st < 0.1 ? 2 : 1) : 0;
     for (let v = 0; v <= max * 1.0001; v += st) ticks.push([v / max, fmt(v, dec)]);
   } else {
-    const st = niceStep(q, 2), dec = st < 1 ? (st < 0.1 ? 2 : 1) : 0;
-    for (let k = -Math.floor(q / st + 1e-9); k * st <= q * 1.0001; k++) ticks.push([(k * st / q + 1) / 2, (k > 0 ? '+' : k < 0 ? '−' : '') + fmt(Math.abs(k * st), dec)]);
+    // Skala von -q bis +q, in der Mitte gestreckt (wie presC im Shader); Marken, die sich drängen würden, fallen weg
+    const st = niceStep(q, 4), dec = st < 1 ? (st < 0.1 ? 2 : 1) : 0;
+    const pos = (v) => 0.5 + 0.5 * Math.sign(v) * Math.pow(Math.abs(v) / q, PRES_GAMMA);
+    const placed = [0, 0.5, 1];
+    ticks.push([0, '−' + fmt(q, dec)], [0.5, '0'], [1, '+' + fmt(q, dec)]);
+    for (let k = 1; k * st < 0.999 * q; k++) for (const s of [-1, 1]) {
+      const p = pos(s * k * st);
+      if (placed.every(x => Math.abs(x - p) >= 0.1)) { placed.push(p); ticks.push([p, (s > 0 ? '+' : '−') + fmt(k * st, dec)]); }
+    }
   }
   $('#legTicks').innerHTML = ticks.map(([p, l]) => `<span style="left:${p * 100}%;transform:translateX(${p < 0.04 ? 0 : p > 0.96 ? -100 : -50}%)">${l}</span>`).join('');
 }
@@ -3722,6 +4002,8 @@ function updateHud(force) {
     if (d) {
       const p = physParams(), ReSim = U_LB * (App.model.meta.ref / d.dx) / p.nu0;
       if (ReSim < Re * 0.9) t += ` (gedämpft ${fmtBig(ReSim)})`;
+      const ue = uEff() / U_LB;
+      if (App.started && ue < 0.97) t += ` · strömt mit ${fmt(ue * 100)} % der Sollgeschwindigkeit ein`;
     }
     const tf = turbFraction(Re);
     t += tf <= 0 ? ', laminar' : tf >= 1 ? ', turbulent' : ', Umschlag';
@@ -3765,22 +4047,41 @@ function drawDial() {
 }
 
 function makeSilhouette(mesh, rad) {
-  const dpr = Math.min(2, devicePixelRatio || 1), size = Math.ceil(rad * 2 * dpr);
-  const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
-  const g = cv.getContext('2d'), P = mesh.pos, I = mesh.idx;
+  // Umriss von oben als Bild: die Dreiecke werden selbst in ein kleines Raster gezeichnet (2×2 Unterpunkte je Bildpunkt).
+  // Ein Canvas-Pfad aus allen Dreiecken wäre einfacher, hängt aber bei feinen Netzen (eine Million Dreiecke) minutenlang.
+  const dpr = Math.min(2, devicePixelRatio || 1), size = Math.ceil(rad * 2 * dpr), ss = 2, W = size * ss;
+  const P = mesh.pos, I = mesh.idx;
   let ext = 0;
   for (let i = 0; i < P.length; i += 3) ext = Math.max(ext, Math.abs(P[i]), Math.abs(P[i + 1]));
-  const k = rad * dpr / (ext || 1) * 0.98, c = size / 2;
-  g.fillStyle = '#aab7c4';
-  g.beginPath();
+  const k = rad * dpr * ss / (ext || 1) * 0.98, c = W / 2;
+  const cov = new Uint8Array(W * W);
   for (let t = 0; t < I.length; t += 3) {
-    const q = [0, 1, 2].map(j => { const v = I[t + j] * 3; return [c - P[v + 1] * k, c - P[v] * k]; });
-    const area = (q[1][0] - q[0][0]) * (q[2][1] - q[0][1]) - (q[2][0] - q[0][0]) * (q[1][1] - q[0][1]);
-    if (Math.abs(area) < 1e-9) continue;
-    const o = area > 0 ? [0, 1, 2] : [0, 2, 1];
-    g.moveTo(q[o[0]][0], q[o[0]][1]); g.lineTo(q[o[1]][0], q[o[1]][1]); g.lineTo(q[o[2]][0], q[o[2]][1]); g.closePath();
+    const a = I[t] * 3, b = I[t + 1] * 3, d = I[t + 2] * 3;
+    const u0 = c - P[a + 1] * k, v0 = c - P[a] * k, u1 = c - P[b + 1] * k, v1 = c - P[b] * k, u2 = c - P[d + 1] * k, v2 = c - P[d] * k;
+    const det = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
+    if (Math.abs(det) < 1e-9) continue;
+    const inv = 1 / det;
+    const i0 = Math.max(0, Math.ceil(Math.min(u0, u1, u2) - 0.5)), i1 = Math.min(W - 1, Math.floor(Math.max(u0, u1, u2) - 0.5));
+    const j0 = Math.max(0, Math.ceil(Math.min(v0, v1, v2) - 0.5)), j1 = Math.min(W - 1, Math.floor(Math.max(v0, v1, v2) - 0.5));
+    for (let j = j0; j <= j1; j++) {
+      const pv = j + 0.5;
+      for (let i = i0; i <= i1; i++) {
+        const pu = i + 0.5;
+        const w1 = ((pu - u0) * (v2 - v0) - (u2 - u0) * (pv - v0)) * inv, w2 = ((u1 - u0) * (pv - v0) - (pu - u0) * (v1 - v0)) * inv;
+        if (w1 >= 0 && w2 >= 0 && w1 + w2 <= 1) cov[i + W * j] = 1;
+      }
+    }
   }
-  g.fill('nonzero');
+  const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
+  const g = cv.getContext('2d'), img = g.createImageData(size, size), px = img.data;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    let n = 0;
+    for (let sy = 0; sy < ss; sy++) for (let sx = 0; sx < ss; sx++) n += cov[(x * ss + sx) + W * (y * ss + sy)];
+    if (!n) continue;
+    const o = (x + size * y) * 4;
+    px[o] = 0xaa; px[o + 1] = 0xb7; px[o + 2] = 0xc4; px[o + 3] = Math.round(255 * n / (ss * ss));
+  }
+  g.putImageData(img, 0, 0);
   return cv;
 }
 
@@ -3835,7 +4136,7 @@ function sceneOf(now) {
     hasField: App.hasField && !App.preview,
     lineWidth: (nLinesOf(App.view.nLinesV) > 700 ? 1.3 : nLinesOf(App.view.nLinesV) > 250 ? 1.7 : 2.1) * r.dpr,
     colorMode: App.view.color === 'vel' ? 0 : 1,
-    velScale: 1 / (VEL_RANGE * U_LB), presScale: 1 / (3 * U_LB * U_LB),
+    velScale: 1 / (VEL_RANGE * U_LB), presScale: 2 / (3 * uEff() * uEff()),   // Druckbeiwert: (rho - rho_ref)/3 geteilt durch u²/2 (wie die Beiwerte)
     surface: App.view.surface, pRef: App.pRef,
     sliceAxis: sl === 'aus' ? -1 : { x: 0, y: 1, z: 2 }[sl],
     slicePos: 0,
@@ -3887,8 +4188,12 @@ function resetForces(fresh = true) {
   updateForceHud();
 }
 
+// Bezug: Staudruck der tatsächlich einströmenden Luft. Versperrung und Bodenreibung heben den Druck im Kanal, und der
+// Charakteristik-Einlass lässt dann etwas weniger als U einströmen (u = U - c_s·dr, dr = mittlere Dichteabweichung in der
+// Bezugsebene; Fahrzeuge < 1 %, Gebäude einige %). Mit U selbst wären die Beiwerte entsprechend zu klein.
+function uEff() { return U_LB - (App.pRef || 0) / Math.sqrt(3); }
 function forceCoeffs(F) {
-  const d = App.dom, V = d.walls.V, pr = App.pRef || 0, qA = 0.5 * U_LB * U_LB * d.aref;
+  const d = App.dom, V = d.walls.V, pr = App.pRef || 0, u = uEff(), qA = 0.5 * u * u * d.aref;
   return [(F[0] - pr * V[0]) / qA, (F[1] - pr * V[1]) / qA, (F[2] - pr * V[2]) / qA];
 }
 
@@ -4010,11 +4315,13 @@ function renderFrame(now, stepsOverride) {
       }
       let k = stepsOverride || App.spf;
       if (!stepsOverride) {
-        // Schritte je Bild so wählen, dass die Grafikkarte je Bild etwa 12–22 ms arbeitet (Rechnen und Zeichnen);
-        // erhöht wird nur nach einer frischen Messung, sonst läuft die Warteschlange der Grafikkarte voll
-        const g = App.gpuMs;
-        if (g > 22) { App.spf = Math.max(1, Math.floor(App.spf * 0.7)); App.gpuFresh = false; }
-        else if (App.gpuFresh && g < 12) { App.spf = Math.min(MAX_SPF, App.spf + Math.max(1, Math.round(App.spf * 0.12))); App.gpuFresh = false; }
+        // Schritte je Bild so wählen, dass die Grafikkarte je Bild etwa 12–22 ms arbeitet (Rechnen und Zeichnen).
+        // Kostet ein einzelner Schritt schon mehrere Millisekunden (große Gitter), dürfen es bis etwa 40 ms sein:
+        // dann rechnet die Karte mehrere Schritte je Bild, und das Zeichnen frisst nicht die halbe Rechenzeit.
+        // Erhöht wird nur nach einer frischen Messung, sonst läuft die Warteschlange der Grafikkarte voll.
+        const g = App.gpuMs, hi = clamp(6 * g / Math.max(App.spf, 1), 22, 40), lo = 0.65 * hi;
+        if (g > hi) { App.spf = Math.max(1, Math.floor(App.spf * 0.7)); App.gpuFresh = false; }
+        else if (App.gpuFresh && g < lo) { App.spf = Math.min(MAX_SPF, App.spf + Math.max(1, Math.round(App.spf * 0.12))); App.gpuFresh = false; }
       }
       sim.steps(enc, k);
       App.steps += k;
@@ -4029,13 +4336,11 @@ function renderFrame(now, stepsOverride) {
       }
     }
     if (App.fieldDirty && App.started) {
-      let mode = 0, alpha = 1;
-      if (App.view.avg) {
-        mode = 1;
-        alpha = App.avgReset ? 1 : 1 - Math.exp(-(App.kSince || 0) * U_LB / App.dom.nx);
-        App.avgReset = false;
-      }
-      sim.copy(enc, mode, alpha);
+      // zeitliches Mittel über etwa einen Durchlauf; ohne Mittelung wird nur der Druck über PRES_TAU Schritte geglättet
+      const k = App.kSince || 0, mode = App.view.avg ? 1 : 0;
+      const alpha = App.avgReset ? 1 : 1 - Math.exp(-k * U_LB / App.dom.nx), alphaP = App.avgReset ? 1 : 1 - Math.exp(-k / PRES_TAU);
+      App.avgReset = false;
+      sim.copy(enc, mode, alpha, alphaP);
       App.kSince = 0;
       if (App.view.lines) sim.trace(enc);
       App.fieldDirty = false;
@@ -4066,8 +4371,9 @@ async function checkHealth() {
     const st = await sim.readStats();
     // Werte aus einem früheren Lauf (vor einem Neustart) nicht verwenden
     if (st && run === App.runId && App.started) {
-      if (st.pRef !== null && Number.isFinite(st.pRef)) App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.5) : st.pRef;
-      const bad = !(st.umax < 3.3 * U_LB);
+      // Bezugsdruck langsam nachführen (Schallrauschen in der Bezugsebene nicht durchschlagen lassen)
+      if (st.pRef !== null && Number.isFinite(st.pRef)) { App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.2) : st.pRef; if (sim.r && !App.building) sim.setParams(physParams()); }
+      const bad = !(st.umax < UMAX_BAD);
       if (bad && App.running) {
         App.restarts++;
         App.started = false; App.steps = 0; App.hasField = false;
@@ -4090,7 +4396,7 @@ async function checkHealth() {
 // einige Schritte auf der Grafikkarte gegen dieselbe Rechnung auf dem Prozessor.
 // Zuerst alle Schritte in einem Durchgang ('one'); klappt das nicht, je Schritt ein eigener ('each').
 function selfTestParams(P) {
-  return { nu0: P.nu0, sigma: P.sigma, noise: P.noise, sponge: P.sponge, floor: P.floor, z0: P.z0, pnorm: P.pnorm, amb: P.amb, nutMax: P.nutMax, cw: P.cw, kin: P.kin, win: P.win, ustar: P.ustar, reib: P.reib, ml: P.ml, wand: P.wand, mlD0: P.mlD0, mlD1: P.mlD1, turb: P.turb };
+  return { nu0: P.nu0, sigma: P.sigma, noise: P.noise, sponge: P.sponge, floor: P.floor, z0: P.z0, pnorm: P.pnorm, amb: P.amb, nutMax: P.nutMax, cw: P.cw, kin: P.kin, win: P.win, ustar: P.ustar, reib: P.reib, ml: P.ml, wand: P.wand, mlD0: P.mlD0, mlD1: P.mlD1, turb: P.turb, uoff: P.uoff, top: P.top };
 }
 
 async function gpuSelfTest() {
@@ -4246,8 +4552,7 @@ function buildUI() {
     if (!App.upload) return;
     App.upload.upY = v === 'y';
     // Bodenerkennung für die neue Hochachse wiederholen
-    const k = App.upload.upY ? 1 : 2, b = meshBounds(App.upload.raw);
-    App.upload.ground = Math.abs(b.lo[k]) < 0.01 * App.upload.ext && b.hi[k] > 0;
+    App.upload.ground = guessGround(meshBounds(App.upload.raw), App.upload.upY ? 1 : 2, App.upload.ext);
     applyUpload();
   });
   $('#upTurn').addEventListener('click', () => { if (App.upload) { App.upload.turn = (App.upload.turn + 1) % 4; applyUpload(); } });
@@ -4379,7 +4684,7 @@ async function main() {
     maxStorageBuffersPerShaderStage: Math.min(8, L.maxStorageBuffersPerShaderStage), maxTextureDimension3D: L.maxTextureDimension3D,
   } });
   App.dev = dev;
-  dev.lost.then(info => { if (info.reason !== 'destroyed') fatal('Verbindung zur Grafikkarte verloren', 'Der Browser hat die Grafikkarte zurückgesetzt, vermutlich weil der Speicher nicht reichte. Bitte die Seite neu laden und eine gröbere Stufe wählen.', true); });
+  dev.lost.then(info => { if (info.reason !== 'destroyed') fatal('Verbindung zur Grafikkarte verloren', 'Der Browser hat die Grafikkarte zurückgesetzt, vermutlich weil der Speicher nicht reichte oder ein anderes Programm die Karte zu lange belegt hat. Bitte die Seite neu laden und eine gröbere Stufe wählen.', true); });
   dev.onuncapturederror = e => console.error('WebGPU:', e.error.message);
   const format = TEST ? 'rgba8unorm' : navigator.gpu.getPreferredCanvasFormat();
   if (!TEST) {
@@ -4479,7 +4784,9 @@ window.WK = {
       App.customCells = o.cells || null;
       App.nuOverride = 0; App.damp = 0; App.reib = o.reib != null ? o.reib : null; App.ml = o.ml != null ? o.ml : null; App.over = o.over || null;
       App.wind.yaw = o.yaw || 0;
-      selectExample(o.model || 'kugel');
+      // 'datei': das zuletzt geladene eigene Modell (siehe WK.loadSTL) mit den Einstellungen in o.upload
+      if (o.model === 'datei' && App.upload) { Object.assign(App.upload, o.upload || {}); applyUpload(); }
+      else selectExample(o.model || 'kugel');
       if (o.speed) App.wind.speed = o.speed;
       if (o.pitch != null) App.wind.pitch = o.pitch;
       updateWindUI(); updateLegend();
@@ -4489,22 +4796,27 @@ window.WK = {
       App.nuOverride = o.nu || 0;
       App.sim.setParams(physParams());
       App.started = false; App.steps = 0; App.restarts = 0;
-      // je Abschnitt höchstens etwa 0,15 s Rechenarbeit (sonst setzt Windows die Grafikkarte zurück)
-      const d = App.dom, passes = o.passes || 6, settle = o.settle != null ? o.settle : SETTLE_PASSES, batch = o.batch || clamp(Math.round(1.5e8 / d.N), 1, 200);
+      // je Abschnitt etwa 0,15 s Rechenarbeit (sonst setzt Windows die Grafikkarte nach 2 s zurück); die Abschnittslänge
+      // wird an der gemessenen Zeit nachgeführt, weil die Karte auch durch andere Programme belegt sein kann
+      const d = App.dom, passes = o.passes || 6, settle = o.settle != null ? o.settle : SETTLE_PASSES;
+      let batch = o.batch || clamp(Math.round(1.5e7 / d.N), 1, 200);
       let line = null, lineN = 0;
       const yc = Math.round((d.mlo[1] + d.mhi[1]) / 2), zc = Math.round(d.ground ? Math.max(1, d.mhi[2] / 2) : (d.mlo[2] + d.mhi[2]) / 2);
       const t0 = performance.now();
       let lastStat = 0;
       while (App.steps * U_LB / d.nx < passes && !job.stop) {
-        renderFrame(performance.now(), batch);
+        const tb = performance.now();
+        renderFrame(tb, batch);
         await App.dev.queue.onSubmittedWorkDone();
+        const ms = performance.now() - tb;
+        if (!o.batch && ms > 1) batch = clamp(Math.round(batch * clamp(150 / ms, 0.3, 2)), 1, 200);
         job.p = App.steps * U_LB / d.nx;
         if (App.steps - lastStat >= 1000) {
           lastStat = App.steps;
           const st = await App.sim.readStats();
           if (st) {
-            if (st.pRef !== null && Number.isFinite(st.pRef)) App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.5) : st.pRef;
-            if (!(st.umax < 3.3 * U_LB)) { job.state = 'instabil'; break; }
+            if (st.pRef !== null && Number.isFinite(st.pRef)) { App.pRef = App.pRefN++ ? lerp(App.pRef, st.pRef, 0.2) : st.pRef; App.sim.setParams(physParams()); }
+            if (!(st.umax < UMAX_BAD)) { job.state = 'instabil'; break; }
           }
           if (o.line && job.p > settle) {
             const v = await WK.lineX(yc, zc);
@@ -4526,6 +4838,15 @@ window.WK = {
     return 'gestartet';
   },
   status() { const j = WK.job; return j ? { state: j.state, p: +(j.p || 0).toFixed(2), err: j.err } : null; },
+  // eigenes Modell aus Dateiinhalt laden (für Prüfungen); opts wie App.upload: size, ground, kind, upY, turn
+  async loadSTL(buf, name = 'test.stl', opts = {}) {
+    await loadFile(new File([buf], name));
+    if (!App.upload) return null;
+    Object.assign(App.upload, opts); applyUpload();
+    await App.buildChain;
+    return { tri: App.upload.raw.length / 9, size: App.upload.size, ground: App.upload.ground, kind: App.upload.kind, toast: $('#toast').textContent };
+  },
+  toast: () => $('#toast').textContent,
 };
 
 main().catch(e => { console.error(e); fatal('Start fehlgeschlagen', String(e && e.message || e)); });
